@@ -1,0 +1,16 @@
+{
+  "update_dir": "/data/upd",
+  "db_path": "/data/data.db",
+  "sources_dir": "/data/sources",
+  "archive_dir": "/data/archive",
+  "quarantine_dir": "/data/quarantine",
+  "ledger_path": "/data/.ds-loader/ledger.jsonl",
+  "poll_interval_seconds": 5.0,
+  "stable_after_seconds": 2.0,
+  "filename_tz": "utc",
+  "ds_command": ["ds"],
+  "stages": ["ingest"],
+  "sources": {
+    "mashkinas": { "prep_cmd": null }
+  }
+}
