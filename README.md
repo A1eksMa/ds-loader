@@ -33,6 +33,8 @@ ds-loader run --config config.json
 
 Без установки: `PYTHONPATH=/opt/ds-loader python3 -m src.cli.main run --once --update-dir ...`.
 
+Для машины без git — архив кода одним файлом: [`releases/`](releases/) (`ds-loader-<version>.tar.gz`).
+
 Параметры берутся из `--config` (JSON, см. [`config.example.json`](config.example.json)),
 поверх — флаги CLI. `update_dir` обязателен (в конфиге или через `--update-dir`).
 
