@@ -123,13 +123,19 @@ def _move(ctx: Context, src: str, dst: str):
         return FileOutcome(posixpath.basename(src), "", ERROR, "перемещение: " + str(exc))
 
 
+def _oneline(text: str, limit: int = 200) -> str:
+    """Схлопнуть переносы/отступы в одну строку (для строки лога).
+    Полный текст (напр. многострочный traceback ядра) остаётся в .err-сайдкаре."""
+    return " ".join(text.split())[:limit]
+
+
 def _quarantine(ctx: Context, src_path: str, sf: SourceFile, reason: str) -> FileOutcome:
     dst = _quarantine_path(ctx, sf)
     try:
-        ctx.fs.write_text(dst + ".err", reason + "\n")
+        ctx.fs.write_text(dst + ".err", reason.rstrip() + "\n")
     except OSError:
         pass
     moved = _move(ctx, src_path, dst)
     if moved is not None:
         return moved
-    return FileOutcome(sf.filename, sf.source, QUARANTINED, reason[:200])
+    return FileOutcome(sf.filename, sf.source, QUARANTINED, _oneline(reason))

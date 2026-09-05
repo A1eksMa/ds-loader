@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 import time
 from typing import Optional
@@ -16,10 +17,18 @@ from src.domain.models import Config
 from src.domain.result import Err
 
 
-def _build_context(cfg: Config, verbose: bool) -> Context:
-    def log(msg: str) -> None:
-        print(msg, file=sys.stderr)
+def _setup_logging(verbose: bool, quiet: bool) -> None:
+    level = logging.DEBUG if verbose else (logging.WARNING if quiet else logging.INFO)
+    logging.basicConfig(
+        stream=sys.stderr,
+        level=level,
+        format="%(asctime)s %(levelname)-7s %(message)s",
+        datefmt="%H:%M:%S",
+        force=True,
+    )
 
+
+def _build_context(cfg: Config) -> Context:
     return Context(
         config=cfg,
         clock=SystemClock(),
@@ -27,7 +36,7 @@ def _build_context(cfg: Config, verbose: bool) -> Context:
         ds=SubprocessDsCli(cfg.ds_command, cfg.ds_pythonpath),
         ledger=JsonlLedger(cfg.ledger_path),
         stages=tuple(STAGES[name] for name in cfg.stages),
-        log=log if verbose else (lambda _msg: None),
+        log=logging.getLogger("ds-loader").info,
     )
 
 
@@ -39,6 +48,8 @@ def _print_reports(reports) -> None:
 
 
 def _run(args: argparse.Namespace) -> int:
+    _setup_logging(args.verbose, args.quiet)
+
     overrides = {
         "update_dir": args.update_dir,
         "db_path": args.db,
@@ -52,7 +63,7 @@ def _run(args: argparse.Namespace) -> int:
         print("error: " + cfg_r.error, file=sys.stderr)
         return 1
 
-    ctx = _build_context(cfg_r.value, verbose=args.verbose)
+    ctx = _build_context(cfg_r.value)
 
     if args.once:
         _print_reports(run_once(ctx))
@@ -76,7 +87,8 @@ def main(argv: Optional[list] = None) -> int:
     run_p.add_argument("--interval", type=float, help="poll interval, seconds")
     run_p.add_argument("--ds-pythonpath",
                        help="PYTHONPATH for the ds subprocess (replaces the inherited one)")
-    run_p.add_argument("--verbose", action="store_true", help="log every pass to stderr")
+    run_p.add_argument("--verbose", action="store_true", help="подробный лог (DEBUG)")
+    run_p.add_argument("--quiet", action="store_true", help="только предупреждения и ошибки")
 
     args = parser.parse_args(argv)
     if args.command == "run":

@@ -27,6 +27,10 @@ ds-loader run --once --update-dir /data/upd --db /data/data.db
 ds-loader run --config config.json
 ```
 
+В режиме цикла лог идёт в stderr: баннер с конфигом на старте, подробности по каждому
+обработанному файлу, короткий «жду данные …» в простое, `Ctrl-C` — чистый выход с итогом.
+`--verbose` — детальнее, `--quiet` — только ошибки. Подробно — [`docs/reference/cli.md`](docs/reference/cli.md).
+
 Без установки: `PYTHONPATH=/opt/ds-loader python3 -m src.cli.main run --once --update-dir ...`.
 
 Параметры берутся из `--config` (JSON, см. [`config.example.json`](config.example.json)),
