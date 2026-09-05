@@ -14,7 +14,8 @@
   "poll_interval_seconds": 5.0,
   "stable_after_seconds": 2.0,
   "filename_tz": "utc",
-  "ds_command": ["ds"],
+  "ds_command": ["python3", "-m", "src.cli.commands"],
+  "ds_pythonpath": "/opt/ds",
   "stages": ["ingest"],
   "sources": { "mashkinas": { "prep_cmd": null } }
 }
@@ -31,7 +32,8 @@
 | `poll_interval_seconds` | number > 0 | `5.0` | интервал опроса в режиме цикла. |
 | `stable_after_seconds` | number | `2.0` | файл обрабатывается, только если его `mtime` старше этого порога (защита от недописанного файла). |
 | `filename_tz` | `"utc"` \| `"local"` | `"utc"` | как трактовать метку времени в имени. `"utc"` — детерминировано; `"local"` — как локальный продьюсер на той же машине. |
-| `ds_command` | array<string> | `["ds"]` | префикс argv для вызова ядра. Напр. `["python","-m","src.cli.commands"]` для чекаута или `["/opt/ds/bin/ds"]`. |
+| `ds_command` | array<string> | `["ds"]` | префикс argv для вызова ядра. Напр. `["python3","-m","src.cli.commands"]` для чекаута без pip или `["/opt/ds/bin/ds"]`. |
+| `ds_pythonpath` | string \| `null` | `null` | `PYTHONPATH` для процесса ядра — **заменяет** унаследованный (остальное окружение наследуется). Нужно, когда и `ds`, и `ds-loader` запускаются из чекаутов без pip как `python -m src.cli.*`: без этого унаследованный `PYTHONPATH` загрузчика заставит `import src` найти пакет загрузчика, а не ядра. `null` → окружение не трогается. |
 | `stages` | array<string> | `["ingest"]` | какие стадии гоняет раннер за тик. Сейчас допустима только `ingest`; неизвестная → ошибка конфига. |
 | `sources` | object | `{}` | переопределения на источник. `prep_cmd` — **зарезервировано**, пока не выполняется (см. [`../roadmap/README.md`](../roadmap/README.md)). |
 

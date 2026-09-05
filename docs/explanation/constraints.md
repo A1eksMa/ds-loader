@@ -21,3 +21,8 @@
 `ds-loader` завязан на CLI-контракт `ds`: форму `ds --db <p> load <dir> <file> --dt <ts>`,
 код возврата (`0` — успех) и stdout (`loaded N transaction(s)`). Изменения этого контракта в
 `ds` — повод обновить `ds-loader` (`src/domain/commands.py`, `docs/reference/`).
+
+Оба проекта используют пакет верхнего уровня `src`. Когда pip недоступен и оба запускаются
+из чекаутов как `python -m src.cli.*`, PYTHONPATH загрузчика «затеняет» ядро. Решение —
+поле конфига `ds_pythonpath`: `SubprocessDsCli` подменяет `PYTHONPATH` только для процесса
+`ds`. См. [`../reference/cli.md`](../reference/cli.md) → «Запуск без pip».

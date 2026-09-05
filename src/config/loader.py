@@ -54,6 +54,10 @@ def load_config(
     if not ds_command:
         return Err("ds_command не может быть пустым")
 
+    ds_pythonpath = data.get("ds_pythonpath")
+    if ds_pythonpath is not None:
+        ds_pythonpath = str(ds_pythonpath)
+
     sources_raw = data.get("sources", {}) or {}
     sources = {}
     for name, spec in sources_raw.items():
@@ -72,6 +76,7 @@ def load_config(
         stable_after_seconds=stable,
         filename_tz=tz,
         ds_command=ds_command,
+        ds_pythonpath=ds_pythonpath,
         stages=stages,
         sources=sources,
     ))

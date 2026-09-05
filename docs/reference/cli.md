@@ -5,7 +5,8 @@
 
 ```
 ds-loader run [--config PATH] [--once] [--update-dir DIR] [--db PATH]
-              [--sources-dir DIR] [--archive-dir DIR] [--interval SECONDS] [--verbose]
+              [--sources-dir DIR] [--archive-dir DIR] [--interval SECONDS]
+              [--ds-pythonpath DIR] [--verbose]
 ```
 
 Пока одна подкоманда — `run`.
@@ -19,6 +20,7 @@ ds-loader run [--config PATH] [--once] [--update-dir DIR] [--db PATH]
 | `--sources-dir DIR` | директория конфигов источников. |
 | `--archive-dir DIR` | корень архива. |
 | `--interval SECONDS` | интервал опроса (перекрывает `poll_interval_seconds`). |
+| `--ds-pythonpath DIR` | `PYTHONPATH` для процесса ядра (перекрывает `ds_pythonpath` из конфига). |
 | `--verbose` | логировать каждый проход в stderr (в режиме цикла). |
 
 Флаги перекрывают значения из `--config`, те — дефолты.
@@ -42,10 +44,23 @@ ds-loader run --once --update-dir /data/upd --db /data/data.db --sources-dir /da
 ds-loader run --config /etc/ds-loader/config.json --verbose
 ```
 
-Без установки пакета: `PYTHONPATH=. python3 -m src.cli.main run --once --update-dir …`.
+## Запуск без pip (оба проекта — чекауты)
 
-> `ds` и `ds-loader` оба используют пакет верхнего уровня `src`, поэтому их нельзя
-> `pip install -e` в **одно** окружение. В проде — раздельные venv (или `ds` установлен
-> глобально), а `ds_command` в конфиге указывает на рабочий способ вызвать ядро
-> (`["ds"]`, `["/opt/ds/venv/bin/ds"]`, `["/usr/bin/env","-u","PYTHONPATH","ds"]` при
-> запуске из чекаута и т.п.).
+`ds` и `ds-loader` оба используют пакет верхнего уровня `src`, поэтому нельзя просто
+положить оба на один `PYTHONPATH`: `import src` найдёт чужой пакет. Схема:
+
+```bash
+# загрузчик — со своим PYTHONPATH
+PYTHONPATH=/opt/ds-loader python3 -m src.cli.main run --config /etc/ds-loader/config.json
+```
+
+а в `config.json` для дочернего процесса ядра:
+
+```json
+"ds_command":    ["python3", "-m", "src.cli.commands"],
+"ds_pythonpath": "/opt/ds"
+```
+
+`ds_pythonpath` **заменяет** унаследованный `PYTHONPATH` только для процесса `ds`, поэтому
+его `import src` находит пакет ядра. Если ядро установлено нормально (`pip install .`) и
+доступно как команда — достаточно `"ds_command": ["ds"]` без `ds_pythonpath`.

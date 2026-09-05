@@ -24,7 +24,7 @@ def _build_context(cfg: Config, verbose: bool) -> Context:
         config=cfg,
         clock=SystemClock(),
         fs=LocalFileSystem(),
-        ds=SubprocessDsCli(cfg.ds_command),
+        ds=SubprocessDsCli(cfg.ds_command, cfg.ds_pythonpath),
         ledger=JsonlLedger(cfg.ledger_path),
         stages=tuple(STAGES[name] for name in cfg.stages),
         log=log if verbose else (lambda _msg: None),
@@ -45,6 +45,7 @@ def _run(args: argparse.Namespace) -> int:
         "sources_dir": args.sources_dir,
         "archive_dir": args.archive_dir,
         "poll_interval_seconds": args.interval,
+        "ds_pythonpath": args.ds_pythonpath,
     }
     cfg_r = load_config(args.config, overrides)
     if isinstance(cfg_r, Err):
@@ -73,6 +74,8 @@ def main(argv: Optional[list] = None) -> int:
     run_p.add_argument("--sources-dir", help="directory with per-source config dirs")
     run_p.add_argument("--archive-dir", help="archive root")
     run_p.add_argument("--interval", type=float, help="poll interval, seconds")
+    run_p.add_argument("--ds-pythonpath",
+                       help="PYTHONPATH for the ds subprocess (replaces the inherited one)")
     run_p.add_argument("--verbose", action="store_true", help="log every pass to stderr")
 
     args = parser.parse_args(argv)

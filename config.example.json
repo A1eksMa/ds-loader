@@ -8,7 +8,8 @@
   "poll_interval_seconds": 5.0,
   "stable_after_seconds": 2.0,
   "filename_tz": "utc",
-  "ds_command": ["ds"],
+  "ds_command": ["python3", "-m", "src.cli.commands"],
+  "ds_pythonpath": "/opt/ds",
   "stages": ["ingest"],
   "sources": {
     "mashkinas": { "prep_cmd": null }

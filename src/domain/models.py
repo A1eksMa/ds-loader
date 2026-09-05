@@ -40,6 +40,9 @@ class Config:
     #                                                  если mtime старше этого порога
     filename_tz: str = "utc"                          # как трактовать метку в имени: "utc" | "local"
     ds_command: Tuple[str, ...] = ("ds",)             # как звать ядро (список argv-префикса)
+    ds_pythonpath: Optional[str] = None               # PYTHONPATH для процесса ядра
+    #   (заменяет унаследованный; нужно, когда ds запускается как `python -m src.cli.commands`
+    #    из чекаута без pip и его `src` конфликтует с `src` загрузчика)
     stages: Tuple[str, ...] = ("ingest",)            # какие стадии гоняет раннер за тик
     sources: Mapping[str, SourceConfig] = field(default_factory=dict)
 

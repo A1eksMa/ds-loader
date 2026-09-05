@@ -58,3 +58,18 @@ def test_rejects_nonpositive_interval():
 
 def test_missing_config_file_is_err(tmp_path):
     assert isinstance(load_config(str(tmp_path / "nope.json"), {"update_dir": "upd"}), Err)
+
+
+def test_ds_pythonpath_defaults_to_none():
+    r = load_config(None, {"update_dir": "upd"})
+    assert isinstance(r, Ok) and r.value.ds_pythonpath is None
+
+
+def test_ds_pythonpath_from_file_and_override(tmp_path):
+    p = tmp_path / "cfg.json"
+    p.write_text(json.dumps({"update_dir": "upd", "ds_pythonpath": "/opt/ds"}), encoding="utf-8")
+
+    assert load_config(str(p), {}).value.ds_pythonpath == "/opt/ds"
+    assert load_config(str(p), {"ds_pythonpath": "/other/ds"}).value.ds_pythonpath == "/other/ds"
+    # None-override не сбрасывает значение из файла
+    assert load_config(str(p), {"ds_pythonpath": None}).value.ds_pythonpath == "/opt/ds"

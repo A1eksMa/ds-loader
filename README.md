@@ -27,10 +27,14 @@ ds-loader run --once --update-dir /data/upd --db /data/data.db
 ds-loader run --config config.json
 ```
 
-Без установки: `PYTHONPATH=. python3 -m src.cli.main run --once --update-dir ...`.
+Без установки: `PYTHONPATH=/opt/ds-loader python3 -m src.cli.main run --once --update-dir ...`.
 
 Параметры берутся из `--config` (JSON, см. [`config.example.json`](config.example.json)),
 поверх — флаги CLI. `update_dir` обязателен (в конфиге или через `--update-dir`).
+
+**Без pip** (оба проекта — чекауты): в конфиге `"ds_command": ["python3","-m","src.cli.commands"]`
+и `"ds_pythonpath": "/opt/ds"` — иначе `PYTHONPATH` загрузчика затенит `src` ядра. Подробно —
+[`docs/reference/cli.md`](docs/reference/cli.md) → «Запуск без pip».
 
 ## Что делает приём (стадия `ingest`)
 
