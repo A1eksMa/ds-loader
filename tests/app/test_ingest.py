@@ -3,7 +3,7 @@ from src.domain.commands import ledger_key
 from src.domain.naming import parse_source_file
 from src.ports.ds_cli import CommandResult
 
-_NAME = "mashkinas_2026-08-24_18-08-16_552252.json"
+_NAME = "crm_2026-08-24_18-08-16_552252.json"
 _NAME2 = "erp_2026-08-24_18-09-00_000000.json"
 _OLD = -100.0  # mtime сильно в прошлом -> файл «стабилен»
 
@@ -21,14 +21,14 @@ def test_loads_and_archives(parts):
     assert report.outcomes[0].status == "loaded"
     # файл вызвал ds load ...
     assert parts["ds"].calls == [[
-        "--db", "data.db", "load", "sources/mashkinas",
+        "--db", "data.db", "load", "sources/crm",
         "upd/" + _NAME, "--dt", "1787594896",
     ]]
     # ... записан в журнал ...
     key = ledger_key(parse_source_file(_NAME).value, b'{"customer_id":["1"]}')
     assert parts["ledger"].has(key)
     # ... и переехал в архив без микросекунд
-    assert "archive/mashkinas/mashkinas_2026-08-24_18-08-16.json" in parts["fs"].files
+    assert "archive/crm/crm_2026-08-24_18-08-16.json" in parts["fs"].files
     assert "upd/" + _NAME not in parts["fs"].files
 
 
@@ -58,7 +58,7 @@ def test_second_pass_does_not_reload(parts):
 
     assert len(parts["ds"].calls) == 1                        # ds повторно НЕ звали
     assert report.outcomes[0].status == "already-loaded"
-    assert "archive/mashkinas/mashkinas_2026-08-24_18-08-16.json" in parts["fs"].files
+    assert "archive/crm/crm_2026-08-24_18-08-16.json" in parts["fs"].files
 
 
 def test_ledger_hit_without_prior_archive_just_files(parts):
@@ -73,7 +73,7 @@ def test_ledger_hit_without_prior_archive_just_files(parts):
 
     assert parts["ds"].calls == []                            # не грузим
     assert report.outcomes[0].status == "already-loaded"
-    assert "archive/mashkinas/mashkinas_2026-08-24_18-08-16.json" in parts["fs"].files
+    assert "archive/crm/crm_2026-08-24_18-08-16.json" in parts["fs"].files
 
 
 # --- partial write ----------------------------------------------------
@@ -104,15 +104,15 @@ def test_stable_file_after_time_passes(parts):
 
 def test_ds_failure_quarantines(parts):
     parts["fs"].add("upd/" + _NAME, mtime=_OLD)
-    parts["ds"].result = CommandResult(1, "", "Source not found: mashkinas")
+    parts["ds"].result = CommandResult(1, "", "Source not found: crm")
     ctx = parts["make"]()
 
     report = ingest_stage(ctx)
 
     assert report.changed == 0
     assert report.outcomes[0].status == "quarantined"
-    assert "quarantine/mashkinas/" + _NAME in parts["fs"].files
-    assert "quarantine/mashkinas/" + _NAME + ".err" in parts["fs"].files
+    assert "quarantine/crm/" + _NAME in parts["fs"].files
+    assert "quarantine/crm/" + _NAME + ".err" in parts["fs"].files
     assert parts["ledger"].entries == {}                      # в журнал НЕ пишем
     assert "upd/" + _NAME not in parts["fs"].files
 
@@ -124,14 +124,14 @@ def test_bad_name_is_reported_not_processed(parts):
 
     report = ingest_stage(ctx)
 
-    assert parts["ds"].calls and parts["ds"].calls[0][3] == "sources/mashkinas"
+    assert parts["ds"].calls and parts["ds"].calls[0][3] == "sources/crm"
     assert any("skipped-name" in line for line in report.lines)
     assert "upd/garbage.json" in parts["fs"].files            # чужой файл не трогаем
 
 
 def test_bad_timestamp_quarantines_without_ds_call(parts):
     # синтаксически валидное имя, но невозможная дата
-    name = "mashkinas_2026-13-40_99-99-99_000000.json"
+    name = "crm_2026-13-40_99-99-99_000000.json"
     parts["fs"].add("upd/" + name, mtime=_OLD)
     ctx = parts["make"]()
 

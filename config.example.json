@@ -12,6 +12,6 @@
   "ds_pythonpath": "/opt/ds",
   "stages": ["ingest"],
   "sources": {
-    "mashkinas": { "prep_cmd": null }
+    "crm": { "prep_cmd": null }
   }
 }

@@ -17,7 +17,7 @@
   "ds_command": ["python3", "-m", "src.cli.commands"],
   "ds_pythonpath": "/opt/ds",
   "stages": ["ingest"],
-  "sources": { "mashkinas": { "prep_cmd": null } }
+  "sources": { "crm": { "prep_cmd": null } }
 }
 ```
 

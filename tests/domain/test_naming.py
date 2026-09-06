@@ -3,14 +3,14 @@ from src.domain.result import Err, Ok
 
 
 def test_parses_canonical_name():
-    r = parse_source_file("mashkinas_2026-08-24_18-08-16_552252.json")
+    r = parse_source_file("crm_2026-08-24_18-08-16_552252.json")
     assert isinstance(r, Ok)
     sf = r.value
-    assert sf.source == "mashkinas"
+    assert sf.source == "crm"
     assert sf.seconds_part == "2026-08-24_18-08-16"
     assert sf.micros == 552252
     assert sf.timestamp == "2026-08-24_18-08-16_552252"
-    assert sf.filename == "mashkinas_2026-08-24_18-08-16_552252.json"
+    assert sf.filename == "crm_2026-08-24_18-08-16_552252.json"
 
 
 def test_source_is_everything_before_first_underscore():
@@ -29,7 +29,7 @@ def test_rejects_wrong_extension():
 
 
 def test_rejects_missing_timestamp():
-    assert isinstance(parse_source_file("mashkinas.json"), Err)
+    assert isinstance(parse_source_file("crm.json"), Err)
 
 
 def test_rejects_no_micros():
@@ -37,5 +37,5 @@ def test_rejects_no_micros():
 
 
 def test_archive_name_drops_micros():
-    sf = parse_source_file("mashkinas_2026-08-24_18-08-16_552252.json").value
-    assert archive_name(sf) == "mashkinas_2026-08-24_18-08-16.json"
+    sf = parse_source_file("crm_2026-08-24_18-08-16_552252.json").value
+    assert archive_name(sf) == "crm_2026-08-24_18-08-16.json"

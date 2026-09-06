@@ -2,7 +2,7 @@ import json
 
 from src.cli.main import main
 
-_NAME = "mashkinas_2026-08-24_18-08-16_552252.json"
+_NAME = "crm_2026-08-24_18-08-16_552252.json"
 
 
 def _write_config(tmp_path, **extra):
@@ -28,7 +28,7 @@ def test_run_once_happy_path(tmp_path, capsys):
     rc = main(["run", "--once", "--config", str(cfg)])
 
     assert rc == 0
-    assert (tmp_path / "archive" / "mashkinas" / "mashkinas_2026-08-24_18-08-16.json").exists()
+    assert (tmp_path / "archive" / "crm" / "crm_2026-08-24_18-08-16.json").exists()
     assert not (tmp_path / "upd" / _NAME).exists()
     assert (tmp_path / "ledger.jsonl").exists()
     out = capsys.readouterr().out
@@ -43,7 +43,7 @@ def test_run_once_ds_failure_quarantines(tmp_path):
     rc = main(["run", "--once", "--config", str(cfg)])
 
     assert rc == 0                                        # тик как таковой отработал
-    assert (tmp_path / "quarantine" / "mashkinas" / _NAME).exists()
+    assert (tmp_path / "quarantine" / "crm" / _NAME).exists()
     assert not (tmp_path / "ledger.jsonl").exists()
 
 
@@ -61,4 +61,4 @@ def test_cli_override_beats_config(tmp_path):
     rc = main(["run", "--once", "--config", str(cfg), "--update-dir", str(tmp_path / "upd2")])
 
     assert rc == 0
-    assert (tmp_path / "archive" / "mashkinas" / "mashkinas_2026-08-24_18-08-16.json").exists()
+    assert (tmp_path / "archive" / "crm" / "crm_2026-08-24_18-08-16.json").exists()

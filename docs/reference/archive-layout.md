@@ -6,9 +6,9 @@
 
 ```
 <archive_dir>/
-├── mashkinas/
-│   ├── mashkinas_2026-08-24_18-08-16.json
-│   └── mashkinas_2026-08-25_09-00-00.json
+├── crm/
+│   ├── crm_2026-08-24_18-08-16.json
+│   └── crm_2026-08-25_09-00-00.json
 └── erp/
     └── erp_2026-08-24_18-09-00.json
 ```
@@ -22,9 +22,9 @@
 
 ```
 <quarantine_dir>/
-└── mashkinas/
-    ├── mashkinas_2026-08-24_18-08-16_552252.json   ← исходное имя, с микросекундами
-    └── mashkinas_2026-08-24_18-08-16_552252.json.err
+└── crm/
+    ├── crm_2026-08-24_18-08-16_552252.json   ← исходное имя, с микросекундами
+    └── crm_2026-08-24_18-08-16_552252.json.err
 ```
 
 Сюда файл уходит, если:
@@ -40,7 +40,7 @@
 JSONL, по строке на успешно загруженный файл:
 
 ```json
-{"key":"mashkinas_..._552252.json:1a2b3c4d5e6f7a8b","file":"mashkinas_..._552252.json","source":"mashkinas","dt":1787602096,"loaded_at":1787602100.5,"stdout":"loaded 6 transaction(s)"}
+{"key":"crm_..._552252.json:1a2b3c4d5e6f7a8b","file":"crm_..._552252.json","source":"crm","dt":1787602096,"loaded_at":1787602100.5,"stdout":"loaded 6 transaction(s)"}
 ```
 
 `key` = `<имя файла>:<sha256(содержимого)[:16]>`. Битые строки при чтении пропускаются —

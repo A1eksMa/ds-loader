@@ -8,7 +8,7 @@
 <source>_<YYYY-MM-DD>_<HH-MM-SS>_<micros>.json
 ```
 
-Пример: `mashkinas_2026-08-24_18-08-16_552252.json`
+Пример: `crm_2026-08-24_18-08-16_552252.json`
 
 | Часть | Правило |
 |---|---|
@@ -42,6 +42,6 @@ timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S_%f")
 
 ## Имя в архиве
 
-Микросекунды отбрасываются: `mashkinas_2026-08-24_18-08-16_552252.json`
-→ `archive/mashkinas/mashkinas_2026-08-24_18-08-16.json`. См.
+Микросекунды отбрасываются: `crm_2026-08-24_18-08-16_552252.json`
+→ `archive/crm/crm_2026-08-24_18-08-16.json`. См.
 [`archive-layout.md`](archive-layout.md).
