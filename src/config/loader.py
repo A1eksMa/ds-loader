@@ -6,7 +6,7 @@ from typing import Any, Mapping, Optional
 from src.domain.models import Config, SourceConfig
 from src.domain.result import Err, Ok
 
-_KNOWN_STAGES = {"ingest"}
+_KNOWN_STAGES = {"ingest", "publish"}
 _KNOWN_TZ = {"utc", "local"}
 
 
@@ -58,6 +58,16 @@ def load_config(
     if ds_pythonpath is not None:
         ds_pythonpath = str(ds_pythonpath)
 
+    webui_data_dir = data.get("webui_data_dir")
+    if webui_data_dir is not None:
+        webui_data_dir = str(webui_data_dir)
+    webui_preset = data.get("webui_preset")
+    if webui_preset is not None:
+        webui_preset = str(webui_preset)
+    publish_state_path = str(data.get("publish_state_path", ".ds-loader/publish.json"))
+    if "publish" in stages and not webui_data_dir:
+        return Err("стадия publish требует webui_data_dir (в конфиге или через --webui-data-dir)")
+
     sources_raw = data.get("sources", {}) or {}
     sources = {}
     for name, spec in sources_raw.items():
@@ -78,5 +88,8 @@ def load_config(
         ds_command=ds_command,
         ds_pythonpath=ds_pythonpath,
         stages=stages,
+        webui_data_dir=webui_data_dir,
+        webui_preset=webui_preset,
+        publish_state_path=publish_state_path,
         sources=sources,
     ))

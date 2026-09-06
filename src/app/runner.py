@@ -7,12 +7,14 @@ from typing import Callable, Tuple
 from src.app.context import Context
 from src.domain.models import StageReport
 
-# Реестр стадий. Новые стадии (публикация data/*.js + manifest, жизненный цикл,
-# сборка) добавляются сюда и включаются через config.stages.
+# Реестр стадий. Новые стадии (жизненный цикл, сборка) добавляются сюда и
+# включаются через config.stages.
 from src.app.ingest import ingest_stage
+from src.app.publish import publish_stage
 
 STAGES = {
     "ingest": ingest_stage,
+    "publish": publish_stage,
 }
 
 _log = logging.getLogger("ds-loader")
@@ -39,6 +41,8 @@ def _banner(ctx: Context) -> None:
     _log.info("  архив:      %s", cfg.archive_dir)
     _log.info("  карантин:   %s", cfg.quarantine_dir)
     _log.info("  журнал:     %s", cfg.ledger_path)
+    if "publish" in cfg.stages:
+        _log.info("  webui data: %s", cfg.webui_data_dir)
     _log.info("  стадии:     %s", ", ".join(cfg.stages))
     _log.info("Ctrl-C — остановить")
 

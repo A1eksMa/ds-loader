@@ -1,12 +1,21 @@
 # Дорожная карта
 
-`ds-loader` задуман как оркестратор всего процесса обновления. Сейчас — одна стадия
-(`ingest`). Дальше — новые стадии в том же списке `config.stages` (см.
+`ds-loader` задуман как оркестратор всего процесса обновления. Сейчас — две стадии
+(`ingest`, `publish`). Дальше — новые стадии в том же списке `config.stages` (см.
 [`../explanation/stages.md`](../explanation/stages.md)).
+
+## Сделано
+
+- **`ingest`** (0.1.0a1) — приём файлов, `ds load`, архив/карантин, exactly-once.
+- **`publish`** (0.4.0a1) — `ds get` → `data/<Source>.js` + `manifest.js` для `ds-webui`,
+  идемпотентно по отпечаткам источников. Формат — [`../reference/publish-output.md`](../reference/publish-output.md).
+
+## Дальше
 
 | Стадия / тема | Что | Зависит от |
 |---|---|---|
-| **`publish`** | после приёма — `ds get --preset <p> --out <dir>` по активным пресетам, обёртка вывода в `.js` (`window.DS.sources[...]`, атомарная запись), сборка/патч `manifest.js` с per-source `gen_max_cnt` / `db_max_cnt` для детекта устаревания в `ds-webui`. Контракт формата — `ds-webui/docs/contract.md`. | стабильный `ds get` (есть с `ds` 0.6.0a1) |
+| честный `db_max_cnt` | сейчас в `manifest.js` `db_max_cnt = gen_max_cnt` (CLI-only). Для детекта устаревания при пресете с фиксированным `as_of` нужен независимый per-source максимум `cnt` — зонд БД или ватермарки в CLI ядра (`ds get --watermarks` / отдельная команда). | правка в `ds` |
+| потоковый `publish` | сейчас весь вывод `ds get` идёт через stdout. Для больших многосерверных выгрузок — `ds get --out <dir>` + чтение файлов (нужен порт удаления/каталога в `FileSystem`). | — |
 | **`prep`-хуки** | выполнять `sources[<name>].prep_cmd` (native-формат источника → колоночный JSON) перед `ds load`. Поле в конфиге уже зарезервировано. | — |
 | **`lifecycle`** | по политике — `ds archive --until-dt …`, retention. | вывод `ds archive` в CLI ядра (`ds/docs/roadmap/lifecycle-cli.md`) |
 | **`build`** | собрать готовый бандл для развёртывания (данные + `ds-webui` + манифест). | `publish` |

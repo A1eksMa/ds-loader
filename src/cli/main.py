@@ -57,6 +57,8 @@ def _run(args: argparse.Namespace) -> int:
         "archive_dir": args.archive_dir,
         "poll_interval_seconds": args.interval,
         "ds_pythonpath": args.ds_pythonpath,
+        "webui_data_dir": args.webui_data_dir,
+        "webui_preset": args.webui_preset,
     }
     cfg_r = load_config(args.config, overrides)
     if isinstance(cfg_r, Err):
@@ -87,6 +89,10 @@ def main(argv: Optional[list] = None) -> int:
     run_p.add_argument("--interval", type=float, help="poll interval, seconds")
     run_p.add_argument("--ds-pythonpath",
                        help="PYTHONPATH for the ds subprocess (replaces the inherited one)")
+    run_p.add_argument("--webui-data-dir",
+                       help="каталог data/ для ds-webui (обязателен для стадии publish)")
+    run_p.add_argument("--webui-preset",
+                       help="пресет для `ds get` в стадии publish (по умолчанию — все источники)")
     run_p.add_argument("--verbose", action="store_true", help="подробный лог (DEBUG)")
     run_p.add_argument("--quiet", action="store_true", help="только предупреждения и ошибки")
 

@@ -43,9 +43,36 @@ def test_file_then_overrides(tmp_path):
 
 def test_rejects_unknown_stage(tmp_path):
     p = tmp_path / "cfg.json"
-    p.write_text(json.dumps({"update_dir": "upd", "stages": ["ingest", "publish"]}), encoding="utf-8")
+    p.write_text(json.dumps({"update_dir": "upd", "stages": ["ingest", "bogus"]}), encoding="utf-8")
     r = load_config(str(p), {})
-    assert isinstance(r, Err) and "publish" in r.error
+    assert isinstance(r, Err) and "bogus" in r.error
+
+
+def test_publish_stage_requires_webui_data_dir():
+    r = load_config(None, {"update_dir": "upd", "stages": ["ingest", "publish"]})
+    assert isinstance(r, Err) and "webui_data_dir" in r.error
+
+
+def test_publish_stage_ok_with_webui_data_dir():
+    r = load_config(None, {
+        "update_dir": "upd", "stages": ["ingest", "publish"], "webui_data_dir": "webui/data",
+    })
+    assert isinstance(r, Ok)
+    assert r.value.stages == ("ingest", "publish")
+    assert r.value.webui_data_dir == "webui/data"
+    assert r.value.publish_state_path == ".ds-loader/publish.json"   # дефолт
+
+
+def test_webui_keys_from_file(tmp_path):
+    p = tmp_path / "cfg.json"
+    p.write_text(json.dumps({
+        "update_dir": "upd", "stages": ["publish"], "webui_data_dir": "w",
+        "webui_preset": "preset.json", "publish_state_path": "state.json",
+    }), encoding="utf-8")
+    r = load_config(str(p), {})
+    assert isinstance(r, Ok)
+    assert r.value.webui_preset == "preset.json"
+    assert r.value.publish_state_path == "state.json"
 
 
 def test_rejects_bad_tz():

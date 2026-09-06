@@ -18,9 +18,15 @@
 
 ## Совместимость с ядром
 
-`ds-loader` завязан на CLI-контракт `ds`: форму `ds --db <p> load <dir> <file> --dt <ts>`,
-код возврата (`0` — успех) и stdout (`loaded N transaction(s)`). Изменения этого контракта в
-`ds` — повод обновить `ds-loader` (`src/domain/commands.py`, `docs/reference/`).
+`ds-loader` завязан на CLI-контракт `ds`:
+
+- `ds --db <p> load <dir> <file> --dt <ts>` — код возврата (`0` — успех), stdout
+  (`loaded N transaction(s)`);
+- `ds --db <p> get [--preset <f>]` — голый JSON в stdout (один `{meta, data}` при одном
+  источнике, `{имя: {meta, data}}` при нескольких, `{}` при пустой БД), код `0`.
+
+Изменения этих контрактов в `ds` — повод обновить `ds-loader`
+(`src/domain/commands.py` / `src/domain/publish.py`, `docs/reference/`).
 
 Оба проекта используют пакет верхнего уровня `src`. Когда pip недоступен и оба запускаются
 из чекаутов как `python -m src.cli.*`, PYTHONPATH загрузчика «затеняет» ядро. Решение —

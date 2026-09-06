@@ -6,7 +6,8 @@
 ```
 ds-loader run [--config PATH] [--once] [--update-dir DIR] [--db PATH]
               [--sources-dir DIR] [--archive-dir DIR] [--interval SECONDS]
-              [--ds-pythonpath DIR] [--verbose]
+              [--ds-pythonpath DIR] [--webui-data-dir DIR] [--webui-preset PATH]
+              [--verbose] [--quiet]
 ```
 
 Пока одна подкоманда — `run`.
@@ -21,6 +22,8 @@ ds-loader run [--config PATH] [--once] [--update-dir DIR] [--db PATH]
 | `--archive-dir DIR` | корень архива. |
 | `--interval SECONDS` | интервал опроса (перекрывает `poll_interval_seconds`). |
 | `--ds-pythonpath DIR` | `PYTHONPATH` для процесса ядра (перекрывает `ds_pythonpath` из конфига). |
+| `--webui-data-dir DIR` | каталог `data/` для `ds-webui` (стадия `publish`; обязателен, если она в `stages` и не задана в конфиге). |
+| `--webui-preset PATH` | пресет для `ds get` в стадии `publish` (перекрывает `webui_preset`). |
 | `--verbose` | подробный лог (уровень `DEBUG`). |
 | `--quiet` | только предупреждения и ошибки (`WARNING`+). |
 
@@ -35,6 +38,9 @@ ds-loader run [--config PATH] [--once] [--update-dir DIR] [--db PATH]
 - **тик с активностью** (загрузка / ошибка / новый непонятный файл) — `[ingest] ok · обработано N`
   и по строке на файл: `loaded` / `already-loaded` / `quarantined — <причина>` /
   `skipped-name` / `skipped-unstable`;
+- **стадия `publish`** (если включена) — `[publish] ok · обработано N` и по строке на источник:
+  `<name>: пересобран` / `<name>: выбыл из выборки` / `без изменений`;
+  сбой `ds get` → `[publish] СБОЙ` + строка `ds get: <причина>`, цикл продолжается;
 - **простой** — раз в ~15 секунд короткая строка `жду данные · проверок N · загружено за сессию M`;
 - мусорный / ещё дописываемый файл, лежащий в inbox, упоминается **один раз**, а не каждый тик;
 - сбой внутри тика — `WARNING`, цикл продолжается;
@@ -57,6 +63,11 @@ ds-loader run [--config PATH] [--once] [--update-dir DIR] [--db PATH]
 ```bash
 # разовый проход из cron
 ds-loader run --once --update-dir /data/upd --db /data/data.db --sources-dir /data/sources
+
+# приём + публикация для ds-webui за один проход
+ds-loader run --once --update-dir /data/upd --db /data/data.db \
+  --sources-dir /data/sources --webui-data-dir /opt/ds-webui/data
+#   (нужен "stages": ["ingest", "publish"] в конфиге — флага для stages нет)
 
 # демон
 ds-loader run --config /etc/ds-loader/config.json --verbose

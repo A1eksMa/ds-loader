@@ -44,6 +44,11 @@ class Config:
     #   (заменяет унаследованный; нужно, когда ds запускается как `python -m src.cli.commands`
     #    из чекаута без pip и его `src` конфликтует с `src` загрузчика)
     stages: Tuple[str, ...] = ("ingest",)            # какие стадии гоняет раннер за тик
+    # --- стадия publish (перестройка выгрузки для ds-webui) ---
+    webui_data_dir: Optional[str] = None             # каталог data/ рядом с index.html ds-webui;
+    #                                                  обязателен, если в stages есть "publish"
+    webui_preset: Optional[str] = None               # пресет для `ds get --preset`; None → все источники
+    publish_state_path: str = ".ds-loader/publish.json"  # отпечатки опубликованного (гейтинг перезаписи)
     sources: Mapping[str, SourceConfig] = field(default_factory=dict)
 
 

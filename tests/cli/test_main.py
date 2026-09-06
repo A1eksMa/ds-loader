@@ -53,6 +53,31 @@ def test_run_missing_update_dir_is_config_error(tmp_path, capsys):
     assert "update_dir" in capsys.readouterr().err
 
 
+def test_run_once_wires_publish_stage(tmp_path, capsys):
+    (tmp_path / "upd").mkdir()
+    cfg = _write_config(
+        tmp_path,
+        stages=["ingest", "publish"],
+        webui_data_dir=str(tmp_path / "webui" / "data"),
+    )
+
+    rc = main(["run", "--once", "--config", str(cfg)])
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "[ingest] ok" in out
+    assert "[publish] FAIL" in out          # `true` не отдаёт вывод для ds get
+
+
+def test_publish_stage_needs_webui_data_dir(tmp_path, capsys):
+    cfg = _write_config(tmp_path, stages=["ingest", "publish"])
+
+    rc = main(["run", "--once", "--config", str(cfg)])
+
+    assert rc == 1
+    assert "webui_data_dir" in capsys.readouterr().err
+
+
 def test_cli_override_beats_config(tmp_path):
     (tmp_path / "upd2").mkdir()
     (tmp_path / "upd2" / _NAME).write_text("{}", encoding="utf-8")

@@ -2,10 +2,15 @@
 
 Оркестратор процесса обновления данных для [`ds`](https://github.com/A1eksMa/ds).
 
-Сейчас реализована одна стадия — **приём**: мониторит директорию, куда источники кладут
-выгрузки, и для каждого нового файла вызывает `ds load`, затем архивирует файл. С прицелом
-на будущее: сюда же встанут стадии публикации (`ds get` → `data/*.js` + `manifest.js` для
-[`ds-webui`](https://github.com/A1eksMa/ds-webui)), управления жизненным циклом и сборки.
+Раннер за тик прогоняет упорядоченный список **стадий** (`config.stages`). Реализованы две:
+
+- **`ingest`** — мониторит директорию, куда источники кладут выгрузки, для каждого нового
+  файла вызывает `ds load`, затем архивирует файл;
+- **`publish`** — вызывает `ds get` и раскладывает результат как `data/<Source>.js` +
+  `data/manifest.js` для [`ds-webui`](https://github.com/A1eksMa/ds-webui) (идемпотентно:
+  неизменившиеся файлы не переписываются). Формат — [`docs/reference/publish-output.md`](docs/reference/publish-output.md).
+
+На будущее — стадии жизненного цикла и сборки (см. [`docs/roadmap/`](docs/roadmap/)).
 
 С ядром `ds` связан **только через CLI** (argv + код возврата + stdout). Кода ядра не
 импортирует.
@@ -22,6 +27,9 @@ pip install -e .
 
 # один проход (для отладки / cron)
 ds-loader run --once --update-dir /data/upd --db /data/data.db
+
+# приём + публикация для ds-webui (нужен "stages": ["ingest","publish"] в конфиге)
+ds-loader run --once --config config.json
 
 # бесконечный цикл с интервалом опроса из конфига
 ds-loader run --config config.json
@@ -60,12 +68,24 @@ ds-loader run --config config.json
 (крах между `commit` в `ds load` и записью журнала) — см.
 [`docs/explanation/exactly-once.md`](docs/explanation/exactly-once.md).
 
+## Что делает публикация (стадия `publish`)
+
+Требует `webui_data_dir` (каталог `data/` рядом с `index.html` `ds-webui`). За один проход:
+
+1. `ds get [--preset <webui_preset>]` — свёрнутое состояние источников голым JSON;
+2. на каждый источник — `<webui_data_dir>/<Source>.js` (`window.DS.sources[...] = {meta, data}`);
+3. сборка `<webui_data_dir>/manifest.js` (`window.DS_MANIFEST` — индекс со свежестью).
+
+Идемпотентно: отпечаток источника (`gen_max_cnt` + показатели) хранится в
+`publish_state_path`; неизменившийся `<Source>.js` не переписывается. Формат и ограничение
+`db_max_cnt = gen_max_cnt` (v1) — [`docs/reference/publish-output.md`](docs/reference/publish-output.md).
+
 ## Документация
 
 - [`docs/README.md`](docs/README.md) — карта
 - [`docs/explanation/`](docs/explanation/) — зачем, модель стадий, exactly-once
-- [`docs/reference/`](docs/reference/) — конфиг, CLI, формат имён, раскладка архива
-- [`docs/roadmap/`](docs/roadmap/) — стадии публикации / жизненного цикла / сборки
+- [`docs/reference/`](docs/reference/) — конфиг, CLI, формат имён, раскладка архива, вывод `publish`
+- [`docs/roadmap/`](docs/roadmap/) — жизненный цикл / сборка / честный `db_max_cnt`
 
 ## Разработка
 

@@ -32,6 +32,26 @@ PYTHONPATH=/path/to/target/folder python3 -m src.cli.main run --config config.js
 
 ---
 
+## 0.4.0a1 — `ds-loader-0.4.0a1.tar.gz`
+
+Вторая стадия — **`publish`**: `ds get` → файловый контракт `ds-webui`.
+
+- Новая стадия `publish` (`src/app/publish.py` + `src/domain/publish.py`). За тик:
+  `ds get [--preset <webui_preset>]` (stdout, голый JSON) → `<webui_data_dir>/<Source>.js`
+  (`window.DS.sources[...] = {meta, data}`) + `<webui_data_dir>/manifest.js`
+  (`window.DS_MANIFEST`). Формат — `docs/reference/publish-output.md` и `ds-webui/docs/contract.md`.
+- Включается через `"stages": ["ingest", "publish"]`. Новые ключи конфига:
+  `webui_data_dir` (обязателен для `publish`), `webui_preset` (пресет для `ds get`,
+  по умолчанию — все источники), `publish_state_path` (отпечатки опубликованного,
+  по умолчанию `.ds-loader/publish.json`). Флаги: `--webui-data-dir`, `--webui-preset`.
+- **Идемпотентно:** отпечаток источника (`gen_max_cnt` + `rows` + показатели) в
+  `publish_state_path`; неизменившийся `<Source>.js` не переписывается, `manifest.js` —
+  только при изменении набора/содержимого источников или на первом проходе.
+- **v1:** `db_max_cnt` в манифесте = `gen_max_cnt` (`ds-loader` — CLI-only, отдельного
+  «сырого max по БД» в `ds get` нет). Для живого поллера пресет с `"as_of": null`.
+- Сбой `ds get` → `[publish] СБОЙ` в логе, цикл продолжается.
+- Контракт с ядром расширен: помимо `ds load` — `ds get [--preset]` → stdout JSON, код `0`.
+
 ## 0.3.0a1 — `ds-loader-0.3.0a1.tar.gz`
 
 Информативный лог в терминал для режима цикла (`ds-loader run` без `--once`).

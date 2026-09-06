@@ -16,7 +16,10 @@
   "filename_tz": "utc",
   "ds_command": ["python3", "-m", "src.cli.commands"],
   "ds_pythonpath": "/opt/ds",
-  "stages": ["ingest"],
+  "stages": ["ingest", "publish"],
+  "webui_data_dir": "/opt/ds-webui/data",
+  "webui_preset": null,
+  "publish_state_path": ".ds-loader/publish.json",
   "sources": { "crm": { "prep_cmd": null } }
 }
 ```
@@ -34,7 +37,10 @@
 | `filename_tz` | `"utc"` \| `"local"` | `"utc"` | как трактовать метку времени в имени. `"utc"` — детерминировано; `"local"` — как локальный продьюсер на той же машине. |
 | `ds_command` | array<string> | `["ds"]` | префикс argv для вызова ядра. Напр. `["python3","-m","src.cli.commands"]` для чекаута без pip или `["/opt/ds/bin/ds"]`. |
 | `ds_pythonpath` | string \| `null` | `null` | `PYTHONPATH` для процесса ядра — **заменяет** унаследованный (остальное окружение наследуется). Нужно, когда и `ds`, и `ds-loader` запускаются из чекаутов без pip как `python -m src.cli.*`: без этого унаследованный `PYTHONPATH` загрузчика заставит `import src` найти пакет загрузчика, а не ядра. `null` → окружение не трогается. |
-| `stages` | array<string> | `["ingest"]` | какие стадии гоняет раннер за тик. Сейчас допустима только `ingest`; неизвестная → ошибка конфига. |
+| `stages` | array<string> | `["ingest"]` | какие стадии гоняет раннер за тик, по порядку. Допустимы `ingest`, `publish`; неизвестная → ошибка конфига. |
+| `webui_data_dir` | string \| `null` | `null` | каталог `data/` рядом с `index.html` `ds-webui`, куда стадия `publish` кладёт `<Source>.js` + `manifest.js`. **Обязателен**, если в `stages` есть `publish` (в конфиге или через `--webui-data-dir`). |
+| `webui_preset` | string \| `null` | `null` | путь к пресету для `ds get --preset` в стадии `publish`. `null` → все источники, все показатели. Для живого поллера в пресете держи `"query": {"as_of": null}` — тогда `gen_max_cnt` в файле совпадает с текущим максимумом источника. |
+| `publish_state_path` | string | `.ds-loader/publish.json` | где стадия `publish` хранит отпечатки уже опубликованных источников — чтобы не переписывать неизменившиеся файлы. Битый/отсутствующий → полная пересборка. |
 | `sources` | object | `{}` | переопределения на источник. `prep_cmd` — **зарезервировано**, пока не выполняется (см. [`../roadmap/README.md`](../roadmap/README.md)). |
 
 Относительные пути разрешаются от текущей директории; для прода рекомендуются абсолютные.

@@ -10,7 +10,10 @@
   "filename_tz": "utc",
   "ds_command": ["python3", "-m", "src.cli.commands"],
   "ds_pythonpath": "/opt/ds",
-  "stages": ["ingest"],
+  "stages": ["ingest", "publish"],
+  "webui_data_dir": "/opt/ds-webui/data",
+  "webui_preset": null,
+  "publish_state_path": "/data/.ds-loader/publish.json",
   "sources": {
     "crm": { "prep_cmd": null }
   }
