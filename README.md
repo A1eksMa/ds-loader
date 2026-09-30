@@ -86,12 +86,22 @@ upload` отказывает **целиком** (не грузит ни одно
 Требует `webui_data_dir` (каталог `data/` рядом с `index.html` `ds-webui`). За один проход:
 
 1. `ds get [--preset <webui_preset>]` — свёрнутое состояние источников голым JSON;
-2. на каждый источник — `<webui_data_dir>/<Source>.js` (`window.DS.sources[...] = {meta, data}`);
-3. сборка `<webui_data_dir>/manifest.js` (`window.DS_MANIFEST` — индекс со свежестью).
+2. для каждого источника читается его `sources_dir/<Source>/source.json` и результат
+   `ds get` сужается до показателей с `"publish": true` (ключевая колонка остаётся всегда);
+   источник без `source.json` или совсем без таких показателей публикует только её —
+   это намеренный дефолт (публикуется лишь то, что явно включено), а не ошибка;
+3. на каждый источник — `<webui_data_dir>/<Source>.js` (`window.DS.sources[...] = {meta, data}`),
+   уже суженный;
+4. сборка `<webui_data_dir>/manifest.js` (`window.DS_MANIFEST` — индекс со свежестью), где на
+   каждый источник дополнительно кладётся `label_types` — `{имя показателя: type}` из
+   `source.json`, для тех же опубликованных показателей (аддитивное поле, `labels` как плоский
+   список строк не меняется — контракт `ds-webui`).
 
-Идемпотентно: отпечаток источника (`gen_max_cnt` + показатели) хранится в
-`publish_state_path`; неизменившийся `<Source>.js` не переписывается. Формат и ограничение
-`db_max_cnt = gen_max_cnt` (v1) — [`docs/reference/publish-output.md`](docs/reference/publish-output.md).
+Идемпотентно: отпечаток источника (`gen_max_cnt` + опубликованные показатели) хранится в
+`publish_state_path`; неизменившийся `<Source>.js` не переписывается — а правка `publish`/`type`
+в `source.json` меняет отпечаток и вызывает пересборку, даже если сами данные не менялись.
+Формат и ограничение `db_max_cnt = gen_max_cnt` (v1) —
+[`docs/reference/publish-output.md`](docs/reference/publish-output.md).
 
 ## Документация
 

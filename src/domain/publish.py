@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Dict, List
+from typing import Dict, List, Optional, Set
 
 from src.domain.models import Config
 from src.domain.result import Err, Ok
@@ -65,6 +65,58 @@ def parse_get_output(stdout: str) -> "Ok[Dict[str, dict]] | Err[str]":
     return Ok(out)
 
 
+def parse_source_labels(raw: bytes) -> Dict[str, dict]:
+    """Разобрать `labels[]` из `source.json` в {имя показателя: {type, publish}}.
+
+    Толерантно: битый JSON, отсутствие/не-список `labels`, элемент без строкового
+    `name` — просто не попадают в результат (в худшем случае источник опубликует
+    только ключевую колонку). `type` по умолчанию "text", `publish` — `False`,
+    как и в `ds` (см. ds/docs/reference/config-format.md).
+    """
+    try:
+        obj = json.loads(raw.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        return {}
+    if not isinstance(obj, dict):
+        return {}
+    labels = obj.get("labels")
+    if not isinstance(labels, list):
+        return {}
+    out: Dict[str, dict] = {}
+    for entry in labels:
+        if not isinstance(entry, dict):
+            continue
+        name = entry.get("name")
+        if not isinstance(name, str):
+            continue
+        type_ = entry.get("type")
+        out[name] = {
+            "type": type_ if isinstance(type_, str) else "text",
+            "publish": bool(entry.get("publish", False)),
+        }
+    return out
+
+
+def filter_to_published(payload: dict, published: Set[str]) -> dict:
+    """Сузить payload `ds get` до показателей из allow-list `published`.
+
+    Ключевая колонка (`meta.key`) остаётся всегда — по ней `ds-webui` вяжет
+    строки. Источник без `source.json` или без ни одного `publish: true`
+    показателя публикует только её (безопасный дефолт — см. project memory:
+    «публиковаться должно лишь то, что указано явно»).
+    """
+    meta = payload["meta"]
+    key = meta.get("key")
+    labels = [name for name in meta.get("labels", []) if name in published]
+    allowed = set(labels)
+    if key is not None:
+        allowed.add(key)
+    new_data = [{k: v for k, v in row.items() if k in allowed} for row in payload.get("data", [])]
+    new_meta = dict(meta)
+    new_meta["labels"] = labels
+    return {"meta": new_meta, "data": new_data}
+
+
 def source_signature(payload: dict) -> str:
     """Отпечаток содержимого источника для гейтинга перезаписи.
 
@@ -91,16 +143,22 @@ def wrap_source_js(name: str, payload: dict) -> str:
     )
 
 
-def manifest_entry(payload: dict) -> dict:
+def manifest_entry(payload: dict, label_types: Optional[Dict[str, str]] = None) -> dict:
     """Запись источника для `manifest.js` из `payload["meta"]`.
 
     v1: `db_max_cnt = gen_max_cnt`. `ds-loader` связан с ядром только через CLI, а
     `ds get` отдаёт лишь `gen_max_cnt` (максимум cnt в срезе `as_of`). При
     публикации на `as_of = now` это и есть текущий максимум источника в БД.
     Отдельный зонд «сырого max по БД» — см. docs/roadmap/README.md.
+
+    `label_types` — {имя показателя: type} из `source.json` (только для тех, что
+    попали в `meta.labels`, т.е. уже прошли фильтр `filter_to_published`).
+    `labels` — остаётся плоским списком строк (контракт ds-webui, менять нельзя);
+    `label_types` — новое, аддитивное поле для типов (ds-webui/docs/contract.md).
     """
     meta = payload["meta"]
     gen = meta.get("gen_max_cnt", 0)
+    types = label_types or {}
     return {
         "name": meta["name"],
         "file": str(meta["name"]) + ".js",
@@ -111,6 +169,7 @@ def manifest_entry(payload: dict) -> dict:
         "db_max_cnt": gen,
         "rows": meta.get("rows", 0),
         "labels": meta.get("labels", []),
+        "label_types": {name: types.get(name, "text") for name in meta.get("labels", [])},
     }
 
 

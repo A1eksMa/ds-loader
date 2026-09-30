@@ -32,7 +32,18 @@ def _manifest(fs):
     return json.loads(txt.split("window.DS_MANIFEST = ", 1)[1].rstrip()[:-1])
 
 
+def _declare_source(fs, name, labels, sources_dir="sources"):
+    """labels: [(имя, type, publish)] -> sources_dir/<name>/source.json."""
+    doc = {
+        "name": name, "key_label": "id",
+        "labels": [{"name": n, "type": t, "publish": p} for n, t, p in labels],
+    }
+    fs.write_text(sources_dir + "/" + name + "/source.json", json.dumps(doc))
+
+
 def test_writes_all_sources_and_manifest(parts):
+    _declare_source(parts["fs"], "CRM", [("email", "text", True)])
+    _declare_source(parts["fs"], "ERP", [("email", "text", True)])
     parts["ds"].result = CommandResult(
         0, json.dumps({"CRM": _payload("CRM"), "ERP": _payload("ERP", gen=5)}), "")
 
@@ -46,10 +57,12 @@ def test_writes_all_sources_and_manifest(parts):
     assert {s["name"] for s in doc["sources"]} == {"CRM", "ERP"}
     assert doc["db_max_cnt"] == 8                      # max gen_max_cnt по источникам
     assert all(s["db_max_cnt"] == s["gen_max_cnt"] for s in doc["sources"])
+    assert all(s["labels"] == ["email"] for s in doc["sources"])
     assert ".ds-loader/publish.json" in fs.files       # отпечатки сохранены
 
 
 def test_second_run_without_changes_writes_nothing(parts):
+    _declare_source(parts["fs"], "CRM", [("email", "text", True)])
     parts["ds"].result = CommandResult(0, json.dumps({"CRM": _payload("CRM")}), "")
     ctx = _ctx(parts)
     publish_stage(ctx)
@@ -63,6 +76,8 @@ def test_second_run_without_changes_writes_nothing(parts):
 
 
 def test_only_changed_source_is_rebuilt(parts):
+    _declare_source(parts["fs"], "CRM", [("email", "text", True)])
+    _declare_source(parts["fs"], "ERP", [("email", "text", True)])
     parts["ds"].result = CommandResult(
         0, json.dumps({"CRM": _payload("CRM", gen=8), "ERP": _payload("ERP", gen=5)}), "")
     ctx = _ctx(parts)
@@ -101,6 +116,8 @@ def test_empty_db_writes_empty_manifest(parts):
 
 
 def test_dropped_source_removed_from_manifest(parts):
+    _declare_source(parts["fs"], "CRM", [("email", "text", True)])
+    _declare_source(parts["fs"], "ERP", [("email", "text", True)])
     parts["ds"].result = CommandResult(
         0, json.dumps({"CRM": _payload("CRM"), "ERP": _payload("ERP")}), "")
     ctx = _ctx(parts)
@@ -115,6 +132,7 @@ def test_dropped_source_removed_from_manifest(parts):
 
 
 def test_corrupt_state_file_triggers_full_rebuild(parts):
+    _declare_source(parts["fs"], "CRM", [("email", "text", True)])
     # путь состояния по умолчанию — .ds-loader/publish.json
     parts["fs"].write_text(".ds-loader/publish.json", "{ not json")
     parts["ds"].result = CommandResult(0, json.dumps({"CRM": _payload("CRM")}), "")
@@ -122,3 +140,57 @@ def test_corrupt_state_file_triggers_full_rebuild(parts):
     rep = publish_stage(_ctx(parts))
 
     assert rep.ok and rep.changed == 1                 # битое состояние => пересобрали всё
+
+
+# --- фильтрация по source.json: publish-флаги и type -----------------------
+
+
+def test_source_without_source_json_publishes_only_key_column(parts):
+    parts["ds"].result = CommandResult(0, json.dumps({"CRM": _payload("CRM")}), "")
+
+    rep = publish_stage(_ctx(parts))
+
+    assert rep.ok and rep.changed == 1
+    js = parts["fs"].files["webui/data/CRM.js"][0].decode("utf-8")
+    body = json.loads(js.split("] = ", 1)[1].rstrip()[:-1])
+    assert body["meta"]["labels"] == []
+    assert body["data"] == [{"id": "1"}]
+    doc = _manifest(parts["fs"])
+    assert doc["sources"][0]["labels"] == []
+    assert doc["sources"][0]["label_types"] == {}
+
+
+def test_unpublished_label_is_filtered_out(parts):
+    _declare_source(parts["fs"], "CRM", [("email", "text", False)])
+    parts["ds"].result = CommandResult(0, json.dumps({"CRM": _payload("CRM")}), "")
+
+    publish_stage(_ctx(parts))
+
+    doc = _manifest(parts["fs"])
+    assert doc["sources"][0]["labels"] == []
+
+
+def test_label_types_included_in_manifest(parts):
+    _declare_source(parts["fs"], "CRM", [("email", "number", True)])
+    parts["ds"].result = CommandResult(0, json.dumps({"CRM": _payload("CRM")}), "")
+
+    publish_stage(_ctx(parts))
+
+    doc = _manifest(parts["fs"])
+    assert doc["sources"][0]["label_types"] == {"email": "number"}
+
+
+def test_publishing_a_previously_hidden_label_triggers_rewrite(parts):
+    """Смена publish-флага в source.json меняет сигнатуру, даже если `ds get`
+    вернул тот же payload — без этого правки source.json «повисали» бы до
+    следующего фактического изменения данных источника."""
+    parts["ds"].result = CommandResult(0, json.dumps({"CRM": _payload("CRM")}), "")
+    ctx = _ctx(parts)
+    publish_stage(ctx)                                  # без source.json -> labels == []
+    assert _manifest(parts["fs"])["sources"][0]["labels"] == []
+
+    _declare_source(parts["fs"], "CRM", [("email", "text", True)])
+    rep = publish_stage(ctx)
+
+    assert rep.changed == 1
+    assert _manifest(parts["fs"])["sources"][0]["labels"] == ["email"]

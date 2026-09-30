@@ -10,6 +10,10 @@
   архив/карантин, exactly-once.
 - **`publish`** (0.4.0a1) — `ds get` → `data/<Source>.js` + `manifest.js` для `ds-webui`,
   идемпотентно по отпечаткам источников. Формат — [`../reference/publish-output.md`](../reference/publish-output.md).
+- **`publish`: фильтр по `source.json`** (с 2026-09-30) — публикуется только то, что в
+  `source.json` источника явно помечено `"publish": true` (ключевая колонка — всегда);
+  `type` каждого показателя прокинут в `manifest.js` как `label_types`. Источник без
+  `source.json` публикует только ключевую колонку — осознанный дефолт.
 
 ## Дальше
 
@@ -19,7 +23,6 @@
 | потоковый `publish` | сейчас весь вывод `ds get` идёт через stdout. Для больших многосерверных выгрузок — `ds get --out <dir>` + чтение файлов (нужен порт удаления/каталога в `FileSystem`). | — |
 | **`prep`-хуки** | выполнять `sources[<name>].prep_cmd` (native-формат источника → колоночный JSON) перед `ds upload`. Поле в конфиге уже зарезервировано. | — |
 | **`lifecycle`** | по политике (не по требованию, как сейчас) — архивирование/дедупликация устаревших/неиспользуемых источников или показателей. Зависимость снята: `ds archive`/`ds delete`/`ds compact` уже есть в CLI ядра, на общем селекторе (`--src`/`--lb`/`--id`/`--where`/`--cnt`/диапазоны дат) — см. [`ds/docs/reference/cli.md`](https://github.com/A1eksMa/ds/blob/main/docs/reference/cli.md). Осталось сформулировать само правило (по давности? по факту неиспользования?) — отложено пользователем на «обсудим отдельно». | — |
-| **`publish`: учитывать `source.json`** | сейчас публикуется всё, что вернул `ds get` (сужение — только вручную через `webui_preset`). Показатели теперь умеют декларировать `type`/`publish` в `source.json` (см. [`ds/docs/reference/config-format.md`](https://github.com/A1eksMa/ds/blob/main/docs/reference/config-format.md)) — `ds-loader` может читать эти файлы напрямую (тот же `sources_dir`, что уже знает `ingest`) и не публиковать показатель, если `publish` не `true` явно, плюс прокинуть `type` в `manifest.js`. **Осознанно**: по умолчанию `publish: false` — значит без доработки этой стадии `webui_preset` остаётся единственным способом сузить публикацию. | `ds` (сделано) |
 | **`build`** | собрать готовый бандл для развёртывания (данные + `ds-webui` + манифест). | `publish` |
 | CLI `status` / `replay` | показать состояние (последние проходы, размер очереди, карантин); повторно прогнать карантин после починки. | — |
 | Идемпотентность | `ds load`/`ds upload --idempotency-key` в ядре, чтобы закрыть остаточное окно exactly-once (по факту дублей — уже можно чистить `ds compact`, см. [`exactly-once.md`](../explanation/exactly-once.md)). | правка в `ds` |

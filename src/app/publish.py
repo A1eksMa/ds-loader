@@ -5,12 +5,14 @@ import posixpath
 from typing import Dict, List, Optional
 
 from src.app.context import Context
-from src.domain.models import StageReport
+from src.domain.models import Config, StageReport
 from src.domain.publish import (
     build_manifest,
+    filter_to_published,
     get_command,
     manifest_entry,
     parse_get_output,
+    parse_source_labels,
     source_signature,
     wrap_source_js,
 )
@@ -38,7 +40,19 @@ def publish_stage(ctx: Context) -> StageReport:
     parsed = parse_get_output(res.stdout)
     if isinstance(parsed, Err):
         return StageReport("publish", ok=False, changed=0, lines=(parsed.error,))
-    payloads = parsed.value
+    raw_payloads = parsed.value
+
+    # Сузить каждый источник до показателей с `publish: true` в его `source.json`
+    # (см. ds/docs/reference/config-format.md). Источник без файла/без ни одного
+    # такого показателя публикует только ключевую колонку — намеренный дефолт
+    # («публиковаться должно лишь то, что указано явно»), а не ошибка.
+    payloads: Dict[str, dict] = {}
+    label_types: Dict[str, Dict[str, str]] = {}
+    for name, raw_payload in raw_payloads.items():
+        labels_cfg = _load_source_labels(ctx, cfg, name)
+        published = {n for n, info in labels_cfg.items() if info.get("publish")}
+        payloads[name] = filter_to_published(raw_payload, published)
+        label_types[name] = {n: info["type"] for n, info in labels_cfg.items() if n in published}
 
     prev = _load_state(ctx, cfg.publish_state_path)     # dict | None (нет файла/битый -> None)
     known = prev if prev is not None else {}
@@ -60,7 +74,7 @@ def publish_stage(ctx: Context) -> StageReport:
     dropped = sorted(set(known) - set(new_sigs))
     manifest_dirty = bool(written) or bool(dropped) or prev is None
     if manifest_dirty:
-        entries = [manifest_entry(payloads[n]) for n in sorted(payloads)]
+        entries = [manifest_entry(payloads[n], label_types[n]) for n in sorted(payloads)]
         ctx.fs.write_text(
             posixpath.join(cfg.webui_data_dir, "manifest.js"),
             build_manifest(entries, ctx.clock.now()),
@@ -74,6 +88,18 @@ def publish_stage(ctx: Context) -> StageReport:
     if not manifest_dirty:
         lines.append("без изменений")
     return StageReport("publish", ok=True, changed=len(written), lines=tuple(lines))
+
+
+# --- source.json (эффектное чтение, разбор — чистая parse_source_labels) -----
+
+
+def _load_source_labels(ctx: Context, cfg: Config, name: str) -> Dict[str, dict]:
+    path = posixpath.join(cfg.sources_dir, name, "source.json")
+    try:
+        raw = ctx.fs.read_bytes(path)
+    except OSError:
+        return {}
+    return parse_source_labels(raw)
 
 
 # --- состояние (эффектное) ----------------------------------------------------

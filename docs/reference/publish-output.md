@@ -27,9 +27,26 @@ window.DS.sources["CRM"] = {
 };
 ```
 
-`{ meta, data }` — ровно то, что отдал `ds get` по этому источнику
+`{ meta, data }` — вывод `ds get` по этому источнику
 ([`ds/docs/reference/get-output-format.md`](https://github.com/A1eksMa/ds/blob/main/docs/reference/get-output-format.md)),
-без изменений. `indent=2`, `ensure_ascii=false`.
+**суженный до опубликованных показателей** (см. «Фильтрация по `publish`» ниже).
+`indent=2`, `ensure_ascii=false`.
+
+## Фильтрация по `publish`
+
+Перед записью `<Source>.js`/`manifest.js` `ds-loader` читает
+`sources_dir/<Source>/source.json` ([`ds/docs/reference/config-format.md`](https://github.com/A1eksMa/ds/blob/main/docs/reference/config-format.md))
+и оставляет в `meta.labels`/`data` только показатели с `"publish": true` там. Ключевая
+колонка (`meta.key`) остаётся всегда — по ней `ds-webui` вяжет строки.
+
+Источник без `source.json` (файла нет / не парсится) или без ни одного `publish: true`
+показателя публикует **только ключевую колонку** — это намеренный дефолт, не ошибка:
+публикуется лишь то, что явно включено инженером, ведущим `ds`; новые/непомеченные
+показатели по умолчанию непубличны для пользователей `ds-webui`.
+
+Фильтрация — пост-обработка уже после `ds get`: работает одинаково независимо от того,
+сужал ли `--preset` набор источников/показателей на стороне `ds`, и всегда дополнительно
+пересекается с allow-list из `source.json` (расширить видимость `webui_preset` не может).
 
 ## `manifest.js`
 
@@ -47,11 +64,17 @@ window.DS_MANIFEST = {
       "gen_max_cnt": <из meta>,
       "db_max_cnt": <= gen_max_cnt, см. ниже>,
       "rows": <из meta>,
-      "labels": [ … ]
+      "labels": [ … ],
+      "label_types": { "email": "text", "revenue": "number", … }
     }
   ]
 };
 ```
+
+`labels` — плоский список опубликованных показателей (после фильтрации по `publish`);
+формат не менялся, чтобы не ломать существующий разбор в `ds-webui`. `label_types` — новое,
+аддитивное поле: `{имя показателя: type}` из `source.json`, для тех же показателей, что в
+`labels` (`type` по умолчанию `"text"`, как и в `ds`, если не указан явно).
 
 В `sources` попадают **только текущие** источники из последнего `ds get`. Файл
 `<Source>.js` источника, выбывшего из выборки (убран из пресета / удалён из БД), на диске
@@ -77,8 +100,11 @@ window.DS_MANIFEST = {
 
 ## Идемпотентность
 
-Отпечаток каждого источника (`gen_max_cnt` + `rows` + список показателей) хранится в
-`publish_state_path` (по умолчанию `.ds-loader/publish.json`). За тик:
+Отпечаток каждого источника (`gen_max_cnt` + `rows` + список **опубликованных** показателей)
+хранится в `publish_state_path` (по умолчанию `.ds-loader/publish.json`). Список берётся уже
+после фильтрации по `publish` — правка `source.json` (добавили/убрали показатель, сменили
+`publish`) меняет отпечаток и вызывает пересборку, даже если сам `ds get` вернул то же самое.
+За тик:
 
 - `<Source>.js` переписывается, только если отпечаток изменился;
 - `manifest.js` — если изменился хоть один источник, кто-то выбыл, или это первый проход

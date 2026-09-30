@@ -3,9 +3,11 @@ import json
 from src.domain.models import Config
 from src.domain.publish import (
     build_manifest,
+    filter_to_published,
     get_command,
     manifest_entry,
     parse_get_output,
+    parse_source_labels,
     source_signature,
     wrap_source_js,
 )
@@ -119,7 +121,18 @@ def test_manifest_entry_db_max_cnt_equals_gen_max_cnt():
         "as_of": 100.0, "generated_at": 200.0,
         "gen_max_cnt": 8, "db_max_cnt": 8, "rows": 2,
         "labels": ["email", "phone"],
+        "label_types": {"email": "text", "phone": "text"},
     }
+
+
+def test_manifest_entry_uses_given_label_types():
+    entry = manifest_entry(_PAYLOAD, {"email": "text", "phone": "number"})
+    assert entry["label_types"] == {"email": "text", "phone": "number"}
+
+
+def test_manifest_entry_defaults_missing_type_to_text():
+    entry = manifest_entry(_PAYLOAD, {"email": "date"})   # "phone" не описан
+    assert entry["label_types"] == {"email": "date", "phone": "text"}
 
 
 def _manifest_doc(js):
@@ -139,3 +152,64 @@ def test_build_manifest_structure():
 def test_build_manifest_empty():
     doc = _manifest_doc(build_manifest([], generated_at=1.0))
     assert doc["db_max_cnt"] == 0 and doc["sources"] == []
+
+
+# --- parse_source_labels --------------------------------------------------
+
+_SOURCE_JSON = json.dumps({
+    "name": "CRM", "key_label": "customer_id",
+    "labels": [
+        {"name": "email", "type": "text", "publish": True},
+        {"name": "phone", "type": "text"},
+        {"name": "revenue", "type": "number", "publish": True},
+    ],
+}).encode("utf-8")
+
+
+def test_parse_source_labels_reads_type_and_publish():
+    assert parse_source_labels(_SOURCE_JSON) == {
+        "email": {"type": "text", "publish": True},
+        "phone": {"type": "text", "publish": False},
+        "revenue": {"type": "number", "publish": True},
+    }
+
+
+def test_parse_source_labels_tolerates_garbage():
+    assert parse_source_labels(b"not json") == {}
+    assert parse_source_labels(b'{"labels": "nope"}') == {}
+    assert parse_source_labels(b"[]") == {}
+    assert parse_source_labels(b'{"labels": [{"type": "text"}]}') == {}   # без name
+
+
+def test_parse_source_labels_defaults_missing_type_to_text():
+    raw = json.dumps({"labels": [{"name": "x", "publish": True}]}).encode("utf-8")
+    assert parse_source_labels(raw) == {"x": {"type": "text", "publish": True}}
+
+
+# --- filter_to_published --------------------------------------------------
+
+
+def test_filter_to_published_narrows_labels_and_columns():
+    out = filter_to_published(_PAYLOAD, {"email"})
+    assert out["meta"]["labels"] == ["email"]
+    assert out["data"] == [
+        {"customer_id": "1", "email": "a@x"},
+        {"customer_id": "2"},
+    ]
+
+
+def test_filter_to_published_keeps_key_column_even_if_not_published():
+    out = filter_to_published(_PAYLOAD, set())
+    assert out["meta"]["labels"] == []
+    assert out["data"] == [{"customer_id": "1"}, {"customer_id": "2"}]
+
+
+def test_filter_to_published_preserves_original_label_order():
+    out = filter_to_published(_PAYLOAD, {"phone", "email"})
+    assert out["meta"]["labels"] == ["email", "phone"]   # порядок как в payload, не в published
+
+
+def test_filter_to_published_does_not_mutate_input():
+    before = json.loads(json.dumps(_PAYLOAD))
+    filter_to_published(_PAYLOAD, {"email"})
+    assert _PAYLOAD == before
