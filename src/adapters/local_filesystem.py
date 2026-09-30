@@ -13,6 +13,12 @@ class LocalFileSystem:
     def list_files(self, directory: str) -> List[str]:
         return sorted(e.name for e in os.scandir(directory) if e.is_file())
 
+    def list_dirs(self, directory: str) -> List[str]:
+        return sorted(e.name for e in os.scandir(directory) if e.is_dir())
+
+    def mkdir(self, directory: str) -> None:
+        os.makedirs(directory, exist_ok=True)
+
     def stat(self, path: str) -> FileStat:
         st = os.stat(path)
         return FileStat(size=st.st_size, mtime=st.st_mtime)

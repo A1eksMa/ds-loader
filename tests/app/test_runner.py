@@ -68,7 +68,7 @@ def test_run_forever_banner_and_heartbeat(parts, caplog):
         run_forever(ctx, sleep=_ticker(stop_after=4))  # interval=5 -> heartbeat каждые 3 тика
     text = "\n".join(r.message for r in caplog.records)
     assert "ds-loader · старт" in text
-    assert "смотрю:" in text and ctx.config.update_dir in text
+    assert "источники:" in text and ctx.config.sources_dir in text
     assert "жду данные · проверок 3" in text          # 3-й тик = хартбит
 
 

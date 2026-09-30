@@ -4,7 +4,7 @@ from src.domain.naming import parse_source_file
 
 
 def _cfg(**kw):
-    base = dict(update_dir="upd", db_path="data.db", sources_dir="sources")
+    base = dict(db_path="data.db", sources_dir="sources")
     base.update(kw)
     return Config(**base)
 

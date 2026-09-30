@@ -37,12 +37,12 @@ def _named(name, **meta):
 
 
 def test_get_command_without_preset():
-    cfg = Config(update_dir="u", db_path="d.db")
+    cfg = Config(db_path="d.db")
     assert get_command(cfg) == ["--db", "d.db", "get"]
 
 
 def test_get_command_with_preset():
-    cfg = Config(update_dir="u", db_path="d.db", webui_preset="p.json")
+    cfg = Config(db_path="d.db", webui_preset="p.json")
     assert get_command(cfg) == ["--db", "d.db", "get", "--preset", "p.json"]
 
 

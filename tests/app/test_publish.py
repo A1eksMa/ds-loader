@@ -18,7 +18,7 @@ def _payload(name, gen=8, labels=("email",), rows=1):
 
 
 def _ctx(parts, **cfg_kw):
-    base = dict(update_dir="upd", db_path="data.db",
+    base = dict(db_path="data.db",
                 webui_data_dir="webui/data", stages=("publish",))
     base.update(cfg_kw)
     return Context(

@@ -29,11 +29,11 @@ class SourceConfig:
 
 @dataclass(frozen=True)
 class Config:
-    update_dir: str                                   # обязательно: что мониторим
     db_path: str = "data.db"
-    sources_dir: str = "sources"
-    archive_dir: str = "archive"
-    quarantine_dir: str = "quarantine"
+    sources_dir: str = "sources"                      # sources_dir/<source>/ несёт всё разом:
+    #   source.json (конфиг), upload/ (мониторится stage ingest), archive/, quarantine/ —
+    #   создаются/используются относительно неё же (см. src/app/ingest.py). Источником
+    #   считается только поддиректория с source.json (см. _discover_sources в ingest.py).
     ledger_path: str = ".ds-loader/ledger.jsonl"
     poll_interval_seconds: float = 5.0
     stable_after_seconds: float = 2.0                 # файл считается дописанным,
@@ -63,7 +63,8 @@ class Config:
 class FileOutcome:
     filename: str
     source: str
-    # loaded | already-loaded | skipped-unstable | skipped-name | quarantined | error
+    # loaded | already-loaded | skipped-unstable | skipped-name | skipped-misfiled |
+    # quarantined | error
     status: str
     detail: str = ""
 

@@ -5,7 +5,7 @@ from typing import List
 
 from src.app.context import Context
 from src.domain.commands import ingest_command, ledger_key
-from src.domain.models import FileOutcome, SourceFile, StageReport
+from src.domain.models import Config, FileOutcome, SourceFile, StageReport
 from src.domain.naming import archive_name, parse_source_file
 from src.domain.queue import order_queue
 from src.domain.result import Err
@@ -16,28 +16,47 @@ LOADED = "loaded"
 ALREADY = "already-loaded"
 UNSTABLE = "skipped-unstable"
 BAD_NAME = "skipped-name"
+MISFILED = "skipped-misfiled"
 QUARANTINED = "quarantined"
 ERROR = "error"
 
+# Фиксированные имена поддиректорий внутри sources_dir/<source>/ — не конфигурируются:
+# источник и всё, что с ним связано (конфиг + бэкап загруженного), живут в одной папке.
+_UPLOAD = "upload"
+_ARCHIVE = "archive"
+_QUARANTINE = "quarantine"
+_SOURCE_CONFIG = "source.json"
+
 
 def ingest_stage(ctx: Context) -> StageReport:
-    """Один проход по директории обновлений: разобрать имена, упорядочить,
-    обработать по одному файлу за раз (загрузка -> журнал -> архив)."""
+    """Один проход по всем источникам: для каждого — своя `sources_dir/<source>/upload/`
+    (создаётся, если её ещё нет). Разобрать имена, упорядочить по времени, обработать по
+    одному файлу за раз (загрузка -> журнал -> архив)."""
     cfg = ctx.config
     try:
-        names = ctx.fs.list_files(cfg.update_dir)
+        source_names = _discover_sources(ctx, cfg)
     except OSError as exc:
         return StageReport("ingest", ok=False, changed=0,
-                           lines=("директория обновлений недоступна: " + str(exc),))
+                           lines=("директория источников недоступна: " + str(exc),))
 
     queue: List[SourceFile] = []
     lines: List[str] = []
-    for name in names:
-        parsed = parse_source_file(name)
-        if isinstance(parsed, Err):
-            lines.append(name + ": " + BAD_NAME + " — " + parsed.error)
-            continue
-        queue.append(parsed.value)
+    for source in source_names:
+        upload_dir = _upload_dir(cfg, source)
+        ctx.fs.mkdir(upload_dir)
+        for name in ctx.fs.list_files(upload_dir):
+            parsed = parse_source_file(name)
+            if isinstance(parsed, Err):
+                lines.append(name + ": " + BAD_NAME + " — " + parsed.error)
+                continue
+            sf = parsed.value
+            if sf.source != source:
+                lines.append(
+                    name + ": " + MISFILED + " — лежит в '" + source
+                    + "/upload', а по имени в файле источник '" + sf.source + "'"
+                )
+                continue
+            queue.append(sf)
 
     outcomes: List[FileOutcome] = []
     loaded = 0
@@ -54,9 +73,23 @@ def ingest_stage(ctx: Context) -> StageReport:
                        lines=tuple(lines), outcomes=tuple(outcomes))
 
 
+def _discover_sources(ctx: Context, cfg: Config) -> List[str]:
+    """Источники — поддиректории `sources_dir` с `source.json` внутри (это же требует
+    `ds upload`/`ds get`). Несуществующая `sources_dir` -> OSError (фатально для тика)."""
+    names = ctx.fs.list_dirs(cfg.sources_dir)
+    known = []
+    for name in names:
+        try:
+            ctx.fs.read_bytes(posixpath.join(cfg.sources_dir, name, _SOURCE_CONFIG))
+        except OSError:
+            continue
+        known.append(name)
+    return sorted(known)
+
+
 def _process_one(ctx: Context, sf: SourceFile, now: float) -> FileOutcome:
     cfg = ctx.config
-    src_path = posixpath.join(cfg.update_dir, sf.filename)
+    src_path = posixpath.join(_upload_dir(cfg, sf.source), sf.filename)
 
     try:
         content = ctx.fs.read_bytes(src_path)
@@ -105,12 +138,16 @@ def _process_one(ctx: Context, sf: SourceFile, now: float) -> FileOutcome:
 # --- вспомогательные (эффектные) ------------------------------------------
 
 
+def _upload_dir(cfg: Config, source: str) -> str:
+    return posixpath.join(cfg.sources_dir, source, _UPLOAD)
+
+
 def _archive_path(ctx: Context, sf: SourceFile) -> str:
-    return posixpath.join(ctx.config.archive_dir, sf.source, archive_name(sf))
+    return posixpath.join(ctx.config.sources_dir, sf.source, _ARCHIVE, archive_name(sf))
 
 
 def _quarantine_path(ctx: Context, sf: SourceFile) -> str:
-    return posixpath.join(ctx.config.quarantine_dir, sf.source, sf.filename)
+    return posixpath.join(ctx.config.sources_dir, sf.source, _QUARANTINE, sf.filename)
 
 
 def _move(ctx: Context, src: str, dst: str):

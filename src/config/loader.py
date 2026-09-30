@@ -30,9 +30,6 @@ def load_config(
         if value is not None:
             data[key] = value
 
-    if not data.get("update_dir"):
-        return Err("не задан update_dir (в конфиге или через --update-dir)")
-
     tz = data.get("filename_tz", "utc")
     if tz not in _KNOWN_TZ:
         return Err("filename_tz должен быть одним из " + str(sorted(_KNOWN_TZ)))
@@ -76,11 +73,8 @@ def load_config(
         sources[name] = SourceConfig(prep_cmd=tuple(prep) if prep else None)
 
     return Ok(Config(
-        update_dir=str(data["update_dir"]),
         db_path=str(data.get("db_path", "data.db")),
         sources_dir=str(data.get("sources_dir", "sources")),
-        archive_dir=str(data.get("archive_dir", "archive")),
-        quarantine_dir=str(data.get("quarantine_dir", "quarantine")),
         ledger_path=str(data.get("ledger_path", ".ds-loader/ledger.jsonl")),
         poll_interval_seconds=interval,
         stable_after_seconds=stable,

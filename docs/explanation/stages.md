@@ -16,9 +16,11 @@ Stage = Callable[[Context], StageReport]
 ## Стадия `ingest`
 
 Приём. Алгоритм — [`../reference/`](../reference/) и код `src/app/ingest.py`. Кратко:
-разобрать имена → упорядочить → по одному файлу (журнал → стабильность → `ds upload` →
-журнал → архив / карантин). `ds upload`, не `ds load` — продьюсеру не доверяем вслепую, см.
-[`exactly-once.md`](exactly-once.md).
+найти источники (поддиректории `sources_dir` с `source.json`) → в каждой создать/сканировать
+`upload/` → разобрать имена → упорядочить по всем источникам разом → по одному файлу
+(журнал → стабильность → `ds upload` → журнал → `archive/`/`quarantine/` того же источника).
+`ds upload`, не `ds load` — продьюсеру не доверяем вслепую, см.
+[`exactly-once.md`](exactly-once.md). Раскладка — [`../reference/archive-layout.md`](../reference/archive-layout.md).
 
 ## Стадия `publish`
 

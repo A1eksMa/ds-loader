@@ -56,6 +56,16 @@ class FakeFileSystem:
             if path.startswith(prefix) and "/" not in path[len(prefix):]
         )
 
+    def list_dirs(self, directory: str) -> List[str]:
+        if directory not in self.dirs:
+            raise FileNotFoundError(directory)
+        prefix = directory.rstrip("/") + "/"
+        return sorted({
+            d[len(prefix):].split("/", 1)[0]
+            for d in self.dirs
+            if d.startswith(prefix) and d != directory
+        })
+
     def stat(self, path: str) -> FileStat:
         if path not in self.files:
             raise FileNotFoundError(path)
@@ -108,22 +118,27 @@ class InMemoryLedger:
 @pytest.fixture
 def config() -> Config:
     return Config(
-        update_dir="upd",
         db_path="data.db",
         sources_dir="sources",
-        archive_dir="archive",
-        quarantine_dir="quarantine",
         stable_after_seconds=2.0,
         poll_interval_seconds=5.0,
         filename_tz="utc",
     )
 
 
+def declare_source(fs: FakeFileSystem, name: str, sources_dir: str = "sources") -> None:
+    """Минимальный source.json — чтобы `_discover_sources` (ingest) / чтение source.json
+    (publish) увидели источник `name`. Содержимое неважно для ingest, публикацией не
+    сужается (без `labels[]` — publish-фильтр не найдёт ничего для публикации)."""
+    fs.add(posixpath.join(sources_dir, name, "source.json"),
+           ('{"name": "%s"}' % name).encode("utf-8"))
+
+
 @pytest.fixture
 def parts(config):
     """Контекст + прямой доступ к фейкам."""
     fs = FakeFileSystem()
-    fs.mkdir("upd")
+    fs.mkdir(config.sources_dir)
     clock = FakeClock()
     ds = FakeDsCli()
     ledger = InMemoryLedger()

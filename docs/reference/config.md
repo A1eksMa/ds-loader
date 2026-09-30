@@ -5,11 +5,8 @@
 
 ```json
 {
-  "update_dir": "/data/upd",
   "db_path": "data.db",
   "sources_dir": "sources",
-  "archive_dir": "archive",
-  "quarantine_dir": "quarantine",
   "ledger_path": ".ds-loader/ledger.jsonl",
   "poll_interval_seconds": 5.0,
   "stable_after_seconds": 2.0,
@@ -26,12 +23,9 @@
 
 | Ключ | Тип | По умолч. | Смысл |
 |---|---|---|---|
-| `update_dir` | string | — (**обязателен**) | директория, которую мониторим. Нет дефолта; задаётся в конфиге или `--update-dir`. |
 | `db_path` | string | `data.db` | путь к БД `ds` (передаётся как `ds --db …`). |
-| `sources_dir` | string | `sources` | директория с поддиректориями-конфигами источников (`sources/<name>/source.json`). |
-| `archive_dir` | string | `archive` | корень архива; файлы → `archive/<source>/`. |
-| `quarantine_dir` | string | `quarantine` | сюда уходят файлы при ошибке `ds` или битой метке, рядом — `<file>.err`. |
-| `ledger_path` | string | `.ds-loader/ledger.jsonl` | журнал обработанных (JSONL) — основа exactly-once. |
+| `sources_dir` | string | `sources` | корень источников. `sources_dir/<name>/` несёт всё сразу: `source.json` (конфиг — обязателен, иначе `<name>` не считается источником), `upload/` (мониторит стадия `ingest`, создаётся сама при отсутствии), `archive/`, `quarantine/`. Подробно — [`archive-layout.md`](archive-layout.md). |
+| `ledger_path` | string | `.ds-loader/ledger.jsonl` | журнал обработанных (JSONL) — основа exactly-once. Общий на все источники, не внутри `sources_dir`. |
 | `poll_interval_seconds` | number > 0 | `5.0` | интервал опроса в режиме цикла. |
 | `stable_after_seconds` | number | `2.0` | файл обрабатывается, только если его `mtime` старше этого порога (защита от недописанного файла). |
 | `filename_tz` | `"utc"` \| `"local"` | `"utc"` | как трактовать метку времени в имени. `"utc"` — детерминировано; `"local"` — как локальный продьюсер на той же машине. |

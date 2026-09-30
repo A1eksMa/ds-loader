@@ -8,9 +8,7 @@ _NAME = "crm_2026-08-24_18-08-16_552252.json"
 
 def _write_config(tmp_path, **extra):
     cfg = {
-        "update_dir": str(tmp_path / "upd"),
-        "archive_dir": str(tmp_path / "archive"),
-        "quarantine_dir": str(tmp_path / "quarantine"),
+        "sources_dir": str(tmp_path / "sources"),
         "ledger_path": str(tmp_path / "ledger.jsonl"),
         "ds_command": ["true"],          # /usr/bin/true: игнорирует argv, код 0
         "stable_after_seconds": 0.0,
@@ -21,41 +19,56 @@ def _write_config(tmp_path, **extra):
     return p
 
 
+def _declare_source(tmp_path, name, sources_dir=None):
+    root = sources_dir or (tmp_path / "sources")
+    (root / name).mkdir(parents=True)
+    (root / name / "source.json").write_text(json.dumps({"name": name}), encoding="utf-8")
+    return root / name
+
+
 def test_run_once_happy_path(tmp_path, capsys):
-    (tmp_path / "upd").mkdir()
-    (tmp_path / "upd" / _NAME).write_text('{"customer_id":["1"]}', encoding="utf-8")
+    crm = _declare_source(tmp_path, "crm")
+    (crm / "upload").mkdir()
+    (crm / "upload" / _NAME).write_text('{"customer_id":["1"]}', encoding="utf-8")
     cfg = _write_config(tmp_path)
 
     rc = main(["run", "--once", "--config", str(cfg)])
 
     assert rc == 0
-    assert (tmp_path / "archive" / "crm" / "crm_2026-08-24_18-08-16.json").exists()
-    assert not (tmp_path / "upd" / _NAME).exists()
+    assert (crm / "archive" / "crm_2026-08-24_18-08-16.json").exists()
+    assert not (crm / "upload" / _NAME).exists()
     assert (tmp_path / "ledger.jsonl").exists()
     out = capsys.readouterr().out
     assert "[ingest]" in out and "changed=1" in out
 
 
 def test_run_once_ds_failure_quarantines(tmp_path):
-    (tmp_path / "upd").mkdir()
-    (tmp_path / "upd" / _NAME).write_text("{}", encoding="utf-8")
+    crm = _declare_source(tmp_path, "crm")
+    (crm / "upload").mkdir()
+    (crm / "upload" / _NAME).write_text("{}", encoding="utf-8")
     cfg = _write_config(tmp_path, ds_command=["false"])   # код 1
 
     rc = main(["run", "--once", "--config", str(cfg)])
 
     assert rc == 0                                        # тик как таковой отработал
-    assert (tmp_path / "quarantine" / "crm" / _NAME).exists()
+    assert (crm / "quarantine" / _NAME).exists()
     assert not (tmp_path / "ledger.jsonl").exists()
 
 
-def test_run_missing_update_dir_is_config_error(tmp_path, capsys):
-    rc = main(["run", "--once"])
-    assert rc == 1
-    assert "update_dir" in capsys.readouterr().err
+def test_run_missing_sources_dir_reports_stage_failure(tmp_path, capsys):
+    # sources_dir указан, но не существует на диске -- ошибка стадии, не конфига
+    cfg = _write_config(tmp_path, sources_dir=str(tmp_path / "nope"))
+
+    rc = main(["run", "--once", "--config", str(cfg)])
+
+    assert rc == 0                                        # тик отработал, просто стадия FAIL
+    out = capsys.readouterr().out
+    assert "[ingest] FAIL" in out
+    assert "источников недоступна" in out
 
 
 def test_run_once_wires_publish_stage(tmp_path, capsys):
-    (tmp_path / "upd").mkdir()
+    (tmp_path / "sources").mkdir()
     cfg = _write_config(
         tmp_path,
         stages=["ingest", "publish"],
@@ -80,10 +93,8 @@ def test_publish_stage_needs_webui_data_dir(tmp_path, capsys):
 
 
 def test_force_publish_flag_rewrites_unchanged_manifest(tmp_path, capsys):
-    (tmp_path / "upd").mkdir()
-    sources = tmp_path / "sources" / "CRM"
-    sources.mkdir(parents=True)
-    (sources / "source.json").write_text(
+    crm = _declare_source(tmp_path, "CRM")
+    (crm / "source.json").write_text(
         json.dumps({"name": "CRM", "key_label": "customer_id",
                     "labels": [{"name": "email", "type": "text", "publish": True}]}),
         encoding="utf-8",
@@ -96,7 +107,7 @@ def test_force_publish_flag_rewrites_unchanged_manifest(tmp_path, capsys):
         encoding="utf-8",
     )
     cfg = _write_config(
-        tmp_path, stages=["publish"], sources_dir=str(tmp_path / "sources"),
+        tmp_path, stages=["publish"],
         webui_data_dir=str(tmp_path / "webui" / "data"),
         publish_state_path=str(tmp_path / ".ds-loader" / "publish.json"),
         ds_command=[sys.executable, str(ds_stub)],
@@ -122,11 +133,13 @@ def test_force_publish_flag_rewrites_unchanged_manifest(tmp_path, capsys):
 
 
 def test_cli_override_beats_config(tmp_path):
-    (tmp_path / "upd2").mkdir()
-    (tmp_path / "upd2" / _NAME).write_text("{}", encoding="utf-8")
-    cfg = _write_config(tmp_path)  # update_dir points at .../upd (does not exist)
+    other_root = tmp_path / "elsewhere"
+    crm = _declare_source(tmp_path, "crm", sources_dir=other_root)
+    (crm / "upload").mkdir()
+    (crm / "upload" / _NAME).write_text("{}", encoding="utf-8")
+    cfg = _write_config(tmp_path)   # sources_dir конфига (tmp_path/sources) не существует
 
-    rc = main(["run", "--once", "--config", str(cfg), "--update-dir", str(tmp_path / "upd2")])
+    rc = main(["run", "--once", "--config", str(cfg), "--sources-dir", str(other_root)])
 
     assert rc == 0
-    assert (tmp_path / "archive" / "crm" / "crm_2026-08-24_18-08-16.json").exists()
+    assert (crm / "archive" / "crm_2026-08-24_18-08-16.json").exists()

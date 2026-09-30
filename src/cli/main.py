@@ -52,10 +52,8 @@ def _run(args: argparse.Namespace) -> int:
     _setup_logging(args.verbose, args.quiet)
 
     overrides = {
-        "update_dir": args.update_dir,
         "db_path": args.db,
         "sources_dir": args.sources_dir,
-        "archive_dir": args.archive_dir,
         "poll_interval_seconds": args.interval,
         "ds_pythonpath": args.ds_pythonpath,
         "webui_data_dir": args.webui_data_dir,
@@ -86,10 +84,10 @@ def main(argv: Optional[list] = None) -> int:
     run_p = sub.add_parser("run", help="run the ingest loop (or one pass with --once)")
     run_p.add_argument("--config", help="path to config JSON")
     run_p.add_argument("--once", action="store_true", help="single pass, then exit")
-    run_p.add_argument("--update-dir", help="directory to watch (required if not in config)")
     run_p.add_argument("--db", help="ds database path")
-    run_p.add_argument("--sources-dir", help="directory with per-source config dirs")
-    run_p.add_argument("--archive-dir", help="archive root")
+    run_p.add_argument("--sources-dir",
+                       help="директория с sources_dir/<source>/ (source.json + upload/ + "
+                            "archive/ + quarantine/ на источник)")
     run_p.add_argument("--interval", type=float, help="poll interval, seconds")
     run_p.add_argument("--ds-pythonpath",
                        help="PYTHONPATH for the ds subprocess (replaces the inherited one)")

@@ -34,12 +34,10 @@ def _banner(ctx: Context) -> None:
     if cfg.ds_pythonpath:
         ds += "  (PYTHONPATH=" + cfg.ds_pythonpath + ")"
     _log.info("ds-loader · старт")
-    _log.info("  смотрю:     %s  (каждые %.0f с)", cfg.update_dir, cfg.poll_interval_seconds)
+    _log.info("  источники:  %s/<source>/{upload,archive,quarantine}  (каждые %.0f с)",
+              cfg.sources_dir, cfg.poll_interval_seconds)
     _log.info("  ядро:       %s", ds)
     _log.info("  БД:         %s", cfg.db_path)
-    _log.info("  источники:  %s", cfg.sources_dir)
-    _log.info("  архив:      %s", cfg.archive_dir)
-    _log.info("  карантин:   %s", cfg.quarantine_dir)
     _log.info("  журнал:     %s", cfg.ledger_path)
     if "publish" in cfg.stages:
         _log.info("  webui data: %s", cfg.webui_data_dir)

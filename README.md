@@ -4,9 +4,10 @@
 
 Раннер за тик прогоняет упорядоченный список **стадий** (`config.stages`). Реализованы две:
 
-- **`ingest`** — мониторит директорию, куда источники кладут выгрузки, для каждого нового
-  файла вызывает `ds upload` (строгая загрузка — продьюсеру не доверяем вслепую, см. ниже),
-  затем архивирует файл;
+- **`ingest`** — у каждого источника мониторит его собственную `sources_dir/<source>/upload/`
+  (создаёт, если её ещё нет), для каждого нового файла вызывает `ds upload` (строгая загрузка
+  — продьюсеру не доверяем вслепую, см. ниже), затем архивирует файл рядом же, в
+  `sources_dir/<source>/archive/`;
 - **`publish`** — вызывает `ds get` и раскладывает результат как `data/<Source>.js` +
   `data/manifest.js` для [`ds-webui`](https://github.com/A1eksMa/ds-webui) (идемпотентно:
   неизменившиеся файлы не переписываются). Формат — [`docs/reference/publish-output.md`](docs/reference/publish-output.md).
@@ -27,7 +28,7 @@
 pip install -e .
 
 # один проход (для отладки / cron)
-ds-loader run --once --update-dir /data/upd --db /data/data.db
+ds-loader run --once --sources-dir /data/sources --db /data/data.db
 
 # приём + публикация для ds-webui (нужен "stages": ["ingest","publish"] в конфиге)
 ds-loader run --once --config config.json
@@ -43,12 +44,13 @@ ds-loader run --once --config config.json --force-publish
 обработанному файлу, короткий «жду данные …» в простое, `Ctrl-C` — чистый выход с итогом.
 `--verbose` — детальнее, `--quiet` — только ошибки. Подробно — [`docs/reference/cli.md`](docs/reference/cli.md).
 
-Без установки: `PYTHONPATH=/opt/ds-loader python3 -m src.cli.main run --once --update-dir ...`.
+Без установки: `PYTHONPATH=/opt/ds-loader python3 -m src.cli.main run --once --sources-dir ...`.
 
 Для машины без git — архив кода одним файлом: [`releases/`](releases/) (`ds-loader-<version>.tar.gz`).
 
 Параметры берутся из `--config` (JSON, см. [`config.example.json`](config.example.json)),
-поверх — флаги CLI. `update_dir` обязателен (в конфиге или через `--update-dir`).
+поверх — флаги CLI. Всё опционально — `sources_dir` по умолчанию `sources` (относительно
+текущей директории).
 
 **Без pip** (оба проекта — чекауты): в конфиге `"ds_command": ["python3","-m","src.cli.commands"]`
 и `"ds_pythonpath": "/opt/ds"` — иначе `PYTHONPATH` загрузчика затенит `src` ядра. Подробно —
@@ -56,16 +58,26 @@ ds-loader run --once --config config.json --force-publish
 
 ## Что делает приём (стадия `ingest`)
 
-За один проход:
+Всё, что относится к источнику, лежит в одной директории — `sources_dir/<source>/`: его
+конфиг (`source.json`) и весь бэкап когда-либо загруженного в него. За один проход:
 
-1. читает имена файлов в `update_dir`, разбирает их (`<source>_YYYY-MM-DD_HH-MM-SS_<µs>.json`);
-2. упорядочивает: по метке времени (старые → новые), при равенстве — по имени источника;
-3. по одному файлу:
+1. источниками считаются поддиректории `sources_dir`, в которых есть `source.json` (то же,
+   что уже требуют `ds upload`/`ds get`); для каждой создаётся (если ещё нет)
+   `sources_dir/<source>/upload/`;
+2. читает имена файлов в каждой такой `upload/`, разбирает их
+   (`<source>_YYYY-MM-DD_HH-MM-SS_<µs>.json` — префикс `<source>` должен совпадать с именем
+   папки, иначе `skipped-misfiled`, файл не трогается);
+3. упорядочивает по всем источникам разом: по метке времени (старые → новые), при равенстве
+   — по имени источника;
+4. по одному файлу:
    - если файл уже в журнале — просто доносит его в архив (крах-безопасность);
    - если файл ещё дописывается (`mtime` моложе `stable_after_seconds`) — пропуск до следующего прохода;
    - иначе: `ds --db <db> upload <sources_dir>/<source> <file> --dt <unix>` (метка из имени, UTC);
-   - при успехе — запись в журнал, затем перемещение в `archive/<source>/<source>_YYYY-MM-DD_HH-MM-SS.json`;
-   - при ошибке `ds` или битой метке — в `quarantine/<source>/` + `.err`-сайдкар.
+   - при успехе — запись в журнал, затем перемещение в
+     `sources_dir/<source>/archive/<source>_YYYY-MM-DD_HH-MM-SS.json`;
+   - при ошибке `ds` или битой метке — в `sources_dir/<source>/quarantine/` + `.err`-сайдкар.
+
+Подробная раскладка — [`docs/reference/archive-layout.md`](docs/reference/archive-layout.md).
 
 **Почему `ds upload`, а не `ds load`**: `ingest` принимает файлы от продьюсеров, а не от
 оператора руками — нет гарантии, что конкретный файл действительно от того источника, для

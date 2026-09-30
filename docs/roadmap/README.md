@@ -14,6 +14,13 @@
   `source.json` источника явно помечено `"publish": true` (ключевая колонка — всегда);
   `type` каждого показателя прокинут в `manifest.js` как `label_types`. Источник без
   `source.json` публикует только ключевую колонку — осознанный дефолт.
+- **`publish`: `--force-publish`** (с 2026-09-30) — принудительная пересборка выгрузки на
+  один тик (`run --once --force-publish`), без изменения БД, в обход отпечатков идемпотентности.
+- **Раскладка на источник** (с 2026-09-30) — `update_dir`/`archive_dir`/`quarantine_dir`
+  убраны из конфига; вместо них `sources_dir/<source>/` несёт всё разом: `source.json`,
+  `upload/` (мониторит `ingest`, создаётся сама), `archive/`, `quarantine/`. Конфиг+бэкап
+  источника теперь в одной папке. Подробно —
+  [`../reference/archive-layout.md`](../reference/archive-layout.md).
 
 ## Дальше
 
