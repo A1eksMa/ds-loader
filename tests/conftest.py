@@ -142,11 +142,13 @@ def parts(config):
     clock = FakeClock()
     ds = FakeDsCli()
     ledger = InMemoryLedger()
+    logs: List[str] = []
 
     def make(stages=()):
         return Context(
             config=config, clock=clock, fs=fs, ds=ds, ledger=ledger,
-            stages=stages, log=lambda _m: None,
+            stages=stages, log=logs.append,
         )
 
-    return {"make": make, "fs": fs, "clock": clock, "ds": ds, "ledger": ledger, "config": config}
+    return {"make": make, "fs": fs, "clock": clock, "ds": ds, "ledger": ledger,
+            "config": config, "logs": logs}

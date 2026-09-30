@@ -21,6 +21,9 @@ Stage = Callable[[Context], StageReport]
 (журнал → стабильность → `ds upload` → журнал → `archive/`/`quarantine/` того же источника).
 `ds upload`, не `ds load` — продьюсеру не доверяем вслепую, см.
 [`exactly-once.md`](exactly-once.md). Раскладка — [`../reference/archive-layout.md`](../reference/archive-layout.md).
+Прогресс по каждому файлу (начало / вызов `ds upload` / результат) уходит в лог через
+`ctx.log` сразу по мере обработки, а не только в итоговом `StageReport` по завершении тика —
+см. [`../reference/cli.md`](../reference/cli.md) → «Что видно в терминале».
 
 ## Стадия `publish`
 

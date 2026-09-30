@@ -108,6 +108,34 @@ def test_stable_file_after_time_passes(parts):
     assert report.outcomes[0].status == "loaded"
 
 
+# --- прогресс в реальном времени (ctx.log) --------------------------------
+
+
+def test_logs_progress_per_file_as_it_happens(parts):
+    """Не только итоговый StageReport в конце — каждый файл отмечается в логе сразу же
+    (начало обработки, вызов ds upload, результат), чтобы долгую пачку/большой файл не
+    приняли за зависание."""
+    declare_source(parts["fs"], "crm")
+    declare_source(parts["fs"], "erp")
+    parts["fs"].add("sources/crm/upload/" + _NAME, mtime=_OLD)
+    parts["fs"].add("sources/erp/upload/" + _NAME2, mtime=_OLD)
+
+    ingest_stage(parts["make"]())
+
+    logs = parts["logs"]
+    assert any("к обработке 2 файл" in m for m in logs)
+    assert any("[1/2]" in m and "crm/" + _NAME in m and "начинаю" in m for m in logs)
+    assert any("crm/" + _NAME in m and "вызываю ds upload" in m for m in logs)
+    assert any("[1/2]" in m and "loaded" in m for m in logs)
+    assert any("[2/2]" in m and "erp/" + _NAME2 in m for m in logs)
+
+
+def test_no_progress_log_when_nothing_to_process(parts):
+    declare_source(parts["fs"], "crm")
+    ingest_stage(parts["make"]())
+    assert parts["logs"] == []
+
+
 # --- upload/ автосоздаётся -----------------------------------------------
 
 

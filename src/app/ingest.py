@@ -58,14 +58,23 @@ def ingest_stage(ctx: Context) -> StageReport:
                 continue
             queue.append(sf)
 
+    ordered = order_queue(queue)
+    total = len(ordered)
+    if total:
+        ctx.log("ingest: к обработке " + str(total) + " файл(ов)")
+
     outcomes: List[FileOutcome] = []
     loaded = 0
     now = ctx.clock.now()
-    for sf in order_queue(queue):
+    for i, sf in enumerate(ordered, start=1):
+        progress = "[" + str(i) + "/" + str(total) + "] "
+        ctx.log("ingest: " + progress + sf.source + "/" + sf.filename + " — начинаю")
         outcome = _process_one(ctx, sf, now)
         outcomes.append(outcome)
-        lines.append(sf.filename + ": " + outcome.status
-                     + ((" — " + outcome.detail) if outcome.detail else ""))
+        line = (sf.filename + ": " + outcome.status
+                + ((" — " + outcome.detail) if outcome.detail else ""))
+        lines.append(line)
+        ctx.log("ingest: " + progress + line)
         if outcome.status == LOADED:
             loaded += 1
 
@@ -116,6 +125,10 @@ def _process_one(ctx: Context, sf: SourceFile, now: float) -> FileOutcome:
     if isinstance(dt, Err):
         return _quarantine(ctx, src_path, sf, dt.error)
 
+    # Сам вызов может занять заметное время (большой файл — ds его парсит и вставляет
+    # построчно) — это единственный по-настоящему «тихий» момент в обработке файла,
+    # отсюда лог непосредственно перед стартом подпроцесса.
+    ctx.log("ingest: " + sf.source + "/" + sf.filename + " — вызываю ds upload...")
     result = ctx.ds.run(ingest_command(cfg, sf, src_path, dt.value))
     if result.exit_code != 0:
         return _quarantine(ctx, src_path, sf, (result.stderr or result.stdout).strip())
