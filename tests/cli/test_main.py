@@ -1,4 +1,5 @@
 import json
+import sys
 
 from src.cli.main import main
 
@@ -76,6 +77,48 @@ def test_publish_stage_needs_webui_data_dir(tmp_path, capsys):
 
     assert rc == 1
     assert "webui_data_dir" in capsys.readouterr().err
+
+
+def test_force_publish_flag_rewrites_unchanged_manifest(tmp_path, capsys):
+    (tmp_path / "upd").mkdir()
+    sources = tmp_path / "sources" / "CRM"
+    sources.mkdir(parents=True)
+    (sources / "source.json").write_text(
+        json.dumps({"name": "CRM", "key_label": "customer_id",
+                    "labels": [{"name": "email", "type": "text", "publish": True}]}),
+        encoding="utf-8",
+    )
+    ds_stub = tmp_path / "ds_get.py"
+    ds_stub.write_text(
+        "import sys, json\n"
+        "print(json.dumps({'meta': {'name': 'CRM', 'key': 'customer_id', 'gen_max_cnt': 1, "
+        "'rows': 1, 'labels': ['email']}, 'data': [{'customer_id': '1', 'email': 'a@x'}]}))\n",
+        encoding="utf-8",
+    )
+    cfg = _write_config(
+        tmp_path, stages=["publish"], sources_dir=str(tmp_path / "sources"),
+        webui_data_dir=str(tmp_path / "webui" / "data"),
+        publish_state_path=str(tmp_path / ".ds-loader" / "publish.json"),
+        ds_command=[sys.executable, str(ds_stub)],
+    )
+
+    def _sources():
+        js = (tmp_path / "webui" / "data" / "manifest.js").read_text(encoding="utf-8")
+        return json.loads(js.split("window.DS_MANIFEST = ", 1)[1].rstrip()[:-1])["sources"]
+
+    rc = main(["run", "--once", "--config", str(cfg)])
+    assert rc == 0
+    sources_before = _sources()
+    assert "CRM: пересобран" in capsys.readouterr().out
+
+    rc = main(["run", "--once", "--config", str(cfg)])
+    assert "без изменений" in capsys.readouterr().out    # обычный тик: ничего не поменялось
+
+    rc = main(["run", "--once", "--config", str(cfg), "--force-publish"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "--force-publish" in out and "CRM: пересобран" in out
+    assert _sources() == sources_before          # содержимое то же, БД не трогали
 
 
 def test_cli_override_beats_config(tmp_path):

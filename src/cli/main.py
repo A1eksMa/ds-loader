@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import logging
 import sys
 import time
@@ -65,7 +66,10 @@ def _run(args: argparse.Namespace) -> int:
         print("error: " + cfg_r.error, file=sys.stderr)
         return 1
 
-    ctx = _build_context(cfg_r.value)
+    cfg = cfg_r.value
+    if args.force_publish:
+        cfg = dataclasses.replace(cfg, force_publish=True)
+    ctx = _build_context(cfg)
 
     if args.once:
         _print_reports(run_once(ctx))
@@ -93,6 +97,10 @@ def main(argv: Optional[list] = None) -> int:
                        help="каталог data/ для ds-webui (обязателен для стадии publish)")
     run_p.add_argument("--webui-preset",
                        help="пресет для `ds get` в стадии publish (по умолчанию — все источники)")
+    run_p.add_argument("--force-publish", action="store_true",
+                       help="стадия publish игнорирует сохранённые отпечатки и пересобирает "
+                            "все data/*.js + manifest.js на этот тик, не трогая БД; "
+                            "осмысленно только с --once")
     run_p.add_argument("--verbose", action="store_true", help="подробный лог (DEBUG)")
     run_p.add_argument("--quiet", action="store_true", help="только предупреждения и ошибки")
 

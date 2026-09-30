@@ -180,6 +180,33 @@ def test_label_types_included_in_manifest(parts):
     assert doc["sources"][0]["label_types"] == {"email": "number"}
 
 
+def test_force_publish_rewrites_unchanged_sources(parts):
+    _declare_source(parts["fs"], "CRM", [("email", "text", True)])
+    parts["ds"].result = CommandResult(0, json.dumps({"CRM": _payload("CRM")}), "")
+    ctx = _ctx(parts)
+    publish_stage(ctx)
+    crm_before = parts["fs"].files["webui/data/CRM.js"]
+
+    # тот же payload, БД не менялась — обычный тик ничего бы не тронул
+    rep = publish_stage(_ctx(parts, force_publish=True))
+
+    assert rep.ok and rep.changed == 1
+    assert "CRM: пересобран" in rep.lines
+    assert rep.lines[0] == "--force-publish: сохранённые отпечатки проигнорированы"
+    assert parts["fs"].files["webui/data/CRM.js"] == crm_before   # содержимое то же, но записано заново
+
+
+def test_force_publish_does_not_change_state_semantics_for_next_normal_run(parts):
+    _declare_source(parts["fs"], "CRM", [("email", "text", True)])
+    parts["ds"].result = CommandResult(0, json.dumps({"CRM": _payload("CRM")}), "")
+    ctx = _ctx(parts)
+    publish_stage(_ctx(parts, force_publish=True))
+
+    rep = publish_stage(ctx)                            # обычный тик сразу после форс-прогона
+
+    assert rep.changed == 0 and "без изменений" in rep.lines
+
+
 def test_publishing_a_previously_hidden_label_triggers_rewrite(parts):
     """Смена publish-флага в source.json меняет сигнатуру, даже если `ds get`
     вернул тот же payload — без этого правки source.json «повисали» бы до

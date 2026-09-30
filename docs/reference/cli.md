@@ -7,7 +7,7 @@
 ds-loader run [--config PATH] [--once] [--update-dir DIR] [--db PATH]
               [--sources-dir DIR] [--archive-dir DIR] [--interval SECONDS]
               [--ds-pythonpath DIR] [--webui-data-dir DIR] [--webui-preset PATH]
-              [--verbose] [--quiet]
+              [--force-publish] [--verbose] [--quiet]
 ```
 
 Пока одна подкоманда — `run`.
@@ -24,6 +24,7 @@ ds-loader run [--config PATH] [--once] [--update-dir DIR] [--db PATH]
 | `--ds-pythonpath DIR` | `PYTHONPATH` для процесса ядра (перекрывает `ds_pythonpath` из конфига). |
 | `--webui-data-dir DIR` | каталог `data/` для `ds-webui` (стадия `publish`; обязателен, если она в `stages` и не задана в конфиге). |
 | `--webui-preset PATH` | пресет для `ds get` в стадии `publish` (перекрывает `webui_preset`). |
+| `--force-publish` | стадия `publish` игнорирует сохранённые отпечатки и пересобирает `data/*.js` + `manifest.js` целиком на этот тик, не трогая БД. Не поле `config.json` — только CLI. Осмысленно с `--once`; в бесконечном цикле форсировал бы полную пересборку на каждом тике. |
 | `--verbose` | подробный лог (уровень `DEBUG`). |
 | `--quiet` | только предупреждения и ошибки (`WARNING`+). |
 

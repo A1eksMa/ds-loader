@@ -49,6 +49,10 @@ class Config:
     #                                                  обязателен, если в stages есть "publish"
     webui_preset: Optional[str] = None               # пресет для `ds get --preset`; None → все источники
     publish_state_path: str = ".ds-loader/publish.json"  # отпечатки опубликованного (гейтинг перезаписи)
+    force_publish: bool = False                       # CLI-only (`--force-publish`), не поле конфига:
+    #   на один прогон считать сохранённые отпечатки отсутствующими — полная пересборка
+    #   data/*.js + manifest.js без изменения БД. В `run_forever` форсировал бы каждый тик —
+    #   предназначен для `run --once --force-publish`.
     sources: Mapping[str, SourceConfig] = field(default_factory=dict)
 
 

@@ -25,6 +25,8 @@ def publish_stage(ctx: Context) -> StageReport:
     Идемпотентна: отпечаток каждого источника хранится в publish_state_path,
     файл переписывается только при изменении. `manifest.js` — при любом
     изменении набора/содержимого источников (и на самом первом проходе).
+    `cfg.force_publish` (CLI: `run --once --force-publish`) отключает эту гейтинг-проверку
+    на один тик — полная пересборка без изменения БД.
     """
     cfg = ctx.config
     if not cfg.webui_data_dir:
@@ -54,7 +56,9 @@ def publish_stage(ctx: Context) -> StageReport:
         payloads[name] = filter_to_published(raw_payload, published)
         label_types[name] = {n: info["type"] for n, info in labels_cfg.items() if n in published}
 
-    prev = _load_state(ctx, cfg.publish_state_path)     # dict | None (нет файла/битый -> None)
+    # --force-publish: считать сохранённые отпечатки отсутствующими -> полная пересборка
+    # на этот тик, без изменения БД (см. Config.force_publish).
+    prev = None if cfg.force_publish else _load_state(ctx, cfg.publish_state_path)
     known = prev if prev is not None else {}
 
     new_sigs: Dict[str, str] = {}
@@ -87,6 +91,8 @@ def publish_stage(ctx: Context) -> StageReport:
         lines.append("manifest: обновлён")
     if not manifest_dirty:
         lines.append("без изменений")
+    if cfg.force_publish:
+        lines = ["--force-publish: сохранённые отпечатки проигнорированы"] + lines
     return StageReport("publish", ok=True, changed=len(written), lines=tuple(lines))
 
 
