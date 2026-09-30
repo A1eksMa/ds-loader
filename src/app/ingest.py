@@ -4,7 +4,7 @@ import posixpath
 from typing import List
 
 from src.app.context import Context
-from src.domain.commands import ledger_key, load_command
+from src.domain.commands import ingest_command, ledger_key
 from src.domain.models import FileOutcome, SourceFile, StageReport
 from src.domain.naming import archive_name, parse_source_file
 from src.domain.queue import order_queue
@@ -83,7 +83,7 @@ def _process_one(ctx: Context, sf: SourceFile, now: float) -> FileOutcome:
     if isinstance(dt, Err):
         return _quarantine(ctx, src_path, sf, dt.error)
 
-    result = ctx.ds.run(load_command(cfg, sf, src_path, dt.value))
+    result = ctx.ds.run(ingest_command(cfg, sf, src_path, dt.value))
     if result.exit_code != 0:
         return _quarantine(ctx, src_path, sf, (result.stderr or result.stdout).strip())
 

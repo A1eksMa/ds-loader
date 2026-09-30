@@ -22,7 +22,7 @@ class SourceFile:
 @dataclass(frozen=True)
 class SourceConfig:
     """Переопределения на уровне отдельного источника."""
-    # Команда доменной подготовки native-формата в колоночный JSON перед `ds load`.
+    # Команда доменной подготовки native-формата в колоночный JSON перед `ds upload`.
     # Зарезервировано — на текущем этапе НЕ выполняется (см. docs/roadmap).
     prep_cmd: Optional[Tuple[str, ...]] = None
 

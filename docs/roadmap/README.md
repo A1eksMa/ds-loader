@@ -6,7 +6,8 @@
 
 ## Сделано
 
-- **`ingest`** (0.1.0a1) — приём файлов, `ds load`, архив/карантин, exactly-once.
+- **`ingest`** (0.1.0a1, на `ds upload` — не `ds load` — с 2026-09-30) — приём файлов,
+  архив/карантин, exactly-once.
 - **`publish`** (0.4.0a1) — `ds get` → `data/<Source>.js` + `manifest.js` для `ds-webui`,
   идемпотентно по отпечаткам источников. Формат — [`../reference/publish-output.md`](../reference/publish-output.md).
 
@@ -16,11 +17,12 @@
 |---|---|---|
 | честный `db_max_cnt` | сейчас в `manifest.js` `db_max_cnt = gen_max_cnt` (CLI-only). Для детекта устаревания при пресете с фиксированным `as_of` нужен независимый per-source максимум `cnt` — зонд БД или ватермарки в CLI ядра (`ds get --watermarks` / отдельная команда). | правка в `ds` |
 | потоковый `publish` | сейчас весь вывод `ds get` идёт через stdout. Для больших многосерверных выгрузок — `ds get --out <dir>` + чтение файлов (нужен порт удаления/каталога в `FileSystem`). | — |
-| **`prep`-хуки** | выполнять `sources[<name>].prep_cmd` (native-формат источника → колоночный JSON) перед `ds load`. Поле в конфиге уже зарезервировано. | — |
-| **`lifecycle`** | по политике — `ds archive --until-dt …`, retention. | вывод `ds archive` в CLI ядра (`ds/docs/roadmap/lifecycle-cli.md`) |
+| **`prep`-хуки** | выполнять `sources[<name>].prep_cmd` (native-формат источника → колоночный JSON) перед `ds upload`. Поле в конфиге уже зарезервировано. | — |
+| **`lifecycle`** | по политике (не по требованию, как сейчас) — архивирование/дедупликация устаревших/неиспользуемых источников или показателей. Зависимость снята: `ds archive`/`ds delete`/`ds compact` уже есть в CLI ядра, на общем селекторе (`--src`/`--lb`/`--id`/`--where`/`--cnt`/диапазоны дат) — см. [`ds/docs/reference/cli.md`](https://github.com/A1eksMa/ds/blob/main/docs/reference/cli.md). Осталось сформулировать само правило (по давности? по факту неиспользования?) — отложено пользователем на «обсудим отдельно». | — |
+| **`publish`: учитывать `source.json`** | сейчас публикуется всё, что вернул `ds get` (сужение — только вручную через `webui_preset`). Показатели теперь умеют декларировать `type`/`publish` в `source.json` (см. [`ds/docs/reference/config-format.md`](https://github.com/A1eksMa/ds/blob/main/docs/reference/config-format.md)) — `ds-loader` может читать эти файлы напрямую (тот же `sources_dir`, что уже знает `ingest`) и не публиковать показатель, если `publish` не `true` явно, плюс прокинуть `type` в `manifest.js`. **Осознанно**: по умолчанию `publish: false` — значит без доработки этой стадии `webui_preset` остаётся единственным способом сузить публикацию. | `ds` (сделано) |
 | **`build`** | собрать готовый бандл для развёртывания (данные + `ds-webui` + манифест). | `publish` |
 | CLI `status` / `replay` | показать состояние (последние проходы, размер очереди, карантин); повторно прогнать карантин после починки. | — |
-| Идемпотентность | `ds load --idempotency-key` в ядре, чтобы закрыть остаточное окно exactly-once. | правка в `ds` |
+| Идемпотентность | `ds load`/`ds upload --idempotency-key` в ядре, чтобы закрыть остаточное окно exactly-once (по факту дублей — уже можно чистить `ds compact`, см. [`exactly-once.md`](../explanation/exactly-once.md)). | правка в `ds` |
 | `filename_tz` пресеты | если продьюсеры в разных поясах — на источник. | — |
 
 ## Не в этом проекте

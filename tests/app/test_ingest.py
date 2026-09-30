@@ -19,9 +19,9 @@ def test_loads_and_archives(parts):
 
     assert report.ok and report.changed == 1
     assert report.outcomes[0].status == "loaded"
-    # файл вызвал ds load ...
+    # файл вызвал ds upload (не load -- ingest не доверяет продьюсеру вслепую) ...
     assert parts["ds"].calls == [[
-        "--db", "data.db", "load", "sources/crm",
+        "--db", "data.db", "upload", "sources/crm",
         "upd/" + _NAME, "--dt", "1787594896",
     ]]
     # ... записан в журнал ...

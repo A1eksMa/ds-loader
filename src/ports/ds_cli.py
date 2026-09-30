@@ -10,8 +10,8 @@ class CommandResult(NamedTuple):
 
 
 class DsCli(Protocol):
-    """Запуск подкоманды ядра `ds`. Порт общий (не только `load`) — будущая
-    стадия публикации вызовет через него `ds get`."""
+    """Запуск подкоманды ядра `ds`. Порт общий (не привязан к одной подкоманде) —
+    `ingest` вызывает через него `ds upload`, `publish` — `ds get`."""
 
     def run(self, args: List[str]) -> CommandResult:
         """Ненулевой код возврата — это НЕ исключение (возвращается в CommandResult).
