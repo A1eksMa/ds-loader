@@ -55,6 +55,7 @@ def test_publish_stage_ok_with_webui_data_dir():
     assert r.value.stages == ("ingest", "publish")
     assert r.value.webui_data_dir == "webui/data"
     assert r.value.publish_state_path == ".ds-loader/publish.json"   # дефолт
+    assert r.value.publish_cache_path == ".ds-loader/get-cache.json"  # дефолт
 
 
 def test_webui_keys_from_file(tmp_path):
@@ -62,11 +63,13 @@ def test_webui_keys_from_file(tmp_path):
     p.write_text(json.dumps({
         "stages": ["publish"], "webui_data_dir": "w",
         "webui_preset": "preset.json", "publish_state_path": "state.json",
+        "publish_cache_path": "cache.json",
     }), encoding="utf-8")
     r = load_config(str(p), {})
     assert isinstance(r, Ok)
     assert r.value.webui_preset == "preset.json"
     assert r.value.publish_state_path == "state.json"
+    assert r.value.publish_cache_path == "cache.json"
 
 
 def test_rejects_bad_tz():

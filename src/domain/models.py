@@ -49,6 +49,10 @@ class Config:
     #                                                  обязателен, если в stages есть "publish"
     webui_preset: Optional[str] = None               # пресет для `ds get --preset`; None → все источники
     publish_state_path: str = ".ds-loader/publish.json"  # отпечатки опубликованного (гейтинг перезаписи)
+    publish_cache_path: str = ".ds-loader/get-cache.json"  # передаётся в `ds get --cache`
+    #   как есть на каждый тик; ds-loader не хранит собственного состояния фолда и не решает,
+    #   когда можно идти быстрым путём -- это целиком решает `ds` по struct_version источника
+    #   (см. ds/docs/decisions/0010-incremental-fold-cache.md)
     force_publish: bool = False                       # CLI-only (`--force-publish`), не поле конфига:
     #   на один прогон считать сохранённые отпечатки отсутствующими — полная пересборка
     #   data/*.js + manifest.js без изменения БД. В `run_forever` форсировал бы каждый тик —

@@ -11,6 +11,7 @@
   "webui_data_dir": "/opt/ds-webui/data",
   "webui_preset": null,
   "publish_state_path": "/data/.ds-loader/publish.json",
+  "publish_cache_path": "/data/.ds-loader/get-cache.json",
   "sources": {
     "crm": { "prep_cmd": null }
   }

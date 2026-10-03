@@ -20,11 +20,21 @@ _MANIFEST_HEADER = (
 def get_command(cfg: Config) -> List[str]:
     """argv для `ds` БЕЗ префикса запуска (его добавляет адаптер DsCli).
 
-    Итог: ds --db <db> get [--preset <preset>]  (вывод — в stdout, голый JSON).
+    Итог: ds --db <db> get [--preset <preset>] --cache <publish_cache_path>
+    (вывод — в stdout, голый JSON).
+
+    `--cache` передаётся всегда и безусловно: ds-loader не хранит своего
+    состояния фолда и не решает, когда можно идти быстрым путём — это
+    целиком решает сам `ds` по `struct_version` источника (см.
+    ds/docs/decisions/0010-incremental-fold-cache.md). Если условия не
+    совпали (что-то структурное произошло, другой набор показателей,
+    файла нет/битый) — `ds` сам делает полную пересборку; итоговый JSON
+    не отличается от вызова без `--cache`.
     """
     args = ["--db", cfg.db_path, "get"]
     if cfg.webui_preset:
         args += ["--preset", cfg.webui_preset]
+    args += ["--cache", cfg.publish_cache_path]
     return args
 
 

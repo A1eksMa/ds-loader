@@ -17,6 +17,7 @@
   "webui_data_dir": "/opt/ds-webui/data",
   "webui_preset": null,
   "publish_state_path": ".ds-loader/publish.json",
+  "publish_cache_path": ".ds-loader/get-cache.json",
   "sources": { "crm": { "prep_cmd": null } }
 }
 ```
@@ -35,6 +36,7 @@
 | `webui_data_dir` | string \| `null` | `null` | каталог `data/` рядом с `index.html` `ds-webui`, куда стадия `publish` кладёт `<Source>.js` + `manifest.js`. **Обязателен**, если в `stages` есть `publish` (в конфиге или через `--webui-data-dir`). |
 | `webui_preset` | string \| `null` | `null` | путь к пресету для `ds get --preset` в стадии `publish`. `null` → все источники, все показатели. Для живого поллера в пресете держи `"query": {"as_of": null}` — тогда `gen_max_cnt` в файле совпадает с текущим максимумом источника. |
 | `publish_state_path` | string | `.ds-loader/publish.json` | где стадия `publish` хранит отпечатки уже опубликованных источников — чтобы не переписывать неизменившиеся файлы. Битый/отсутствующий → полная пересборка. |
+| `publish_cache_path` | string | `.ds-loader/get-cache.json` | передаётся в каждый вызов `ds get --cache` стадии `publish`. `ds-loader` не хранит своего состояния фолда и ничего в этом файле не интерпретирует — решение «можно ли дотянуть только новые транзакции или нужна полная пересборка» целиком на стороне `ds` (по `struct_version` источника, см. [`ds`'s ADR-0010](https://github.com/A1eksMa/ds/blob/main/docs/decisions/0010-incremental-fold-cache.md)). Итоговый JSON от этого не меняется — только скорость сборки. |
 | `sources` | object | `{}` | переопределения на источник. `prep_cmd` — **зарезервировано**, пока не выполняется (см. [`../roadmap/README.md`](../roadmap/README.md)). |
 
 Относительные пути разрешаются от текущей директории; для прода рекомендуются абсолютные.

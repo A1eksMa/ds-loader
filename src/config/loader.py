@@ -62,6 +62,7 @@ def load_config(
     if webui_preset is not None:
         webui_preset = str(webui_preset)
     publish_state_path = str(data.get("publish_state_path", ".ds-loader/publish.json"))
+    publish_cache_path = str(data.get("publish_cache_path", ".ds-loader/get-cache.json"))
     if "publish" in stages and not webui_data_dir:
         return Err("стадия publish требует webui_data_dir (в конфиге или через --webui-data-dir)")
 
@@ -85,5 +86,6 @@ def load_config(
         webui_data_dir=webui_data_dir,
         webui_preset=webui_preset,
         publish_state_path=publish_state_path,
+        publish_cache_path=publish_cache_path,
         sources=sources,
     ))

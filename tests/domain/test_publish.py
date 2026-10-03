@@ -37,13 +37,23 @@ def _named(name, **meta):
 
 
 def test_get_command_without_preset():
-    cfg = Config(db_path="d.db")
-    assert get_command(cfg) == ["--db", "d.db", "get"]
+    cfg = Config(db_path="d.db", publish_cache_path="cache.json")
+    assert get_command(cfg) == ["--db", "d.db", "get", "--cache", "cache.json"]
 
 
 def test_get_command_with_preset():
-    cfg = Config(db_path="d.db", webui_preset="p.json")
-    assert get_command(cfg) == ["--db", "d.db", "get", "--preset", "p.json"]
+    cfg = Config(db_path="d.db", webui_preset="p.json", publish_cache_path="cache.json")
+    assert get_command(cfg) == [
+        "--db", "d.db", "get", "--preset", "p.json", "--cache", "cache.json",
+    ]
+
+
+def test_get_command_always_passes_cache_path():
+    # ds-loader keeps no fold state of its own -- it always hands the same
+    # cache path back to `ds`, which decides internally whether the fast
+    # path is safe (see ds/docs/decisions/0010-incremental-fold-cache.md)
+    cfg = Config(db_path="d.db")  # default publish_cache_path
+    assert "--cache" in get_command(cfg)
 
 
 # --- parse_get_output -----------------------------------------------------
