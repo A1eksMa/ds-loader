@@ -107,6 +107,21 @@ def parse_source_labels(raw: bytes) -> Dict[str, dict]:
     return out
 
 
+def parse_source_description(raw: bytes) -> Optional[str]:
+    """Разобрать верхнеуровневое `description` из `source.json` -- что за источник,
+    откуда данные, для человека (см. ds/docs/reference/config-format.md). Толерантно,
+    как `parse_source_labels`: битый JSON / не объект / не строка -> `None`, не ошибка.
+    """
+    try:
+        obj = json.loads(raw.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        return None
+    if not isinstance(obj, dict):
+        return None
+    description = obj.get("description")
+    return description if isinstance(description, str) else None
+
+
 def filter_to_published(payload: dict, published: Set[str]) -> dict:
     """Сузить payload `ds get` до показателей из allow-list `published`.
 
@@ -153,7 +168,11 @@ def wrap_source_js(name: str, payload: dict) -> str:
     )
 
 
-def manifest_entry(payload: dict, label_types: Optional[Dict[str, str]] = None) -> dict:
+def manifest_entry(
+    payload: dict,
+    label_types: Optional[Dict[str, str]] = None,
+    description: Optional[str] = None,
+) -> dict:
     """Запись источника для `manifest.js` из `payload["meta"]`.
 
     v1: `db_max_cnt = gen_max_cnt`. `ds-loader` связан с ядром только через CLI, а
@@ -164,7 +183,14 @@ def manifest_entry(payload: dict, label_types: Optional[Dict[str, str]] = None) 
     `label_types` — {имя показателя: type} из `source.json` (только для тех, что
     попали в `meta.labels`, т.е. уже прошли фильтр `filter_to_published`).
     `labels` — остаётся плоским списком строк (контракт ds-webui, менять нельзя);
-    `label_types` — новое, аддитивное поле для типов (ds-webui/docs/contract.md).
+    `label_types` — аддитивное поле для типов (ds-webui/docs/contract.md).
+
+    `description` — верхнеуровневое `source.json`'s `description`, человекочитаемое
+    описание источника (что за данные, откуда), как есть, без изменений -- `ds`
+    сам его нигде не использует и не хранит в БД (source.json остаётся
+    единственным источником истины для таких "справочных" полей, как и
+    `labels[].type`/`publish` — см. `ds`'s `LabelConfig`). `None`, если источник
+    без `source.json`/без этого поля.
     """
     meta = payload["meta"]
     gen = meta.get("gen_max_cnt", 0)
@@ -173,6 +199,7 @@ def manifest_entry(payload: dict, label_types: Optional[Dict[str, str]] = None) 
         "name": meta["name"],
         "file": str(meta["name"]) + ".js",
         "key": meta.get("key"),
+        "description": description,
         "as_of": meta.get("as_of"),
         "generated_at": meta.get("generated_at"),
         "gen_max_cnt": gen,

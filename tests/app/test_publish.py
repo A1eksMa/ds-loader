@@ -32,12 +32,14 @@ def _manifest(fs):
     return json.loads(txt.split("window.DS_MANIFEST = ", 1)[1].rstrip()[:-1])
 
 
-def _declare_source(fs, name, labels, sources_dir="sources"):
+def _declare_source(fs, name, labels, sources_dir="sources", description=None):
     """labels: [(имя, type, publish)] -> sources_dir/<name>/source.json."""
     doc = {
         "name": name, "key_label": "id",
         "labels": [{"name": n, "type": t, "publish": p} for n, t, p in labels],
     }
+    if description is not None:
+        doc["description"] = description
     fs.write_text(sources_dir + "/" + name + "/source.json", json.dumps(doc))
 
 
@@ -178,6 +180,29 @@ def test_label_types_included_in_manifest(parts):
 
     doc = _manifest(parts["fs"])
     assert doc["sources"][0]["label_types"] == {"email": "number"}
+
+
+def test_description_included_in_manifest(parts):
+    _declare_source(
+        parts["fs"], "CRM", [("email", "text", True)],
+        description="CRM, выгрузка из 1С раз в сутки",
+    )
+    parts["ds"].result = CommandResult(0, json.dumps({"CRM": _payload("CRM")}), "")
+
+    publish_stage(_ctx(parts))
+
+    doc = _manifest(parts["fs"])
+    assert doc["sources"][0]["description"] == "CRM, выгрузка из 1С раз в сутки"
+
+
+def test_source_without_description_is_none_in_manifest(parts):
+    _declare_source(parts["fs"], "CRM", [("email", "text", True)])   # без description
+    parts["ds"].result = CommandResult(0, json.dumps({"CRM": _payload("CRM")}), "")
+
+    publish_stage(_ctx(parts))
+
+    doc = _manifest(parts["fs"])
+    assert doc["sources"][0]["description"] is None
 
 
 def test_force_publish_rewrites_unchanged_sources(parts):

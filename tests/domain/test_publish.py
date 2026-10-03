@@ -7,6 +7,7 @@ from src.domain.publish import (
     get_command,
     manifest_entry,
     parse_get_output,
+    parse_source_description,
     parse_source_labels,
     source_signature,
     wrap_source_js,
@@ -128,11 +129,17 @@ def test_wrap_source_js_shape():
 def test_manifest_entry_db_max_cnt_equals_gen_max_cnt():
     assert manifest_entry(_PAYLOAD) == {
         "name": "CRM", "file": "CRM.js", "key": "customer_id",
+        "description": None,
         "as_of": 100.0, "generated_at": 200.0,
         "gen_max_cnt": 8, "db_max_cnt": 8, "rows": 2,
         "labels": ["email", "phone"],
         "label_types": {"email": "text", "phone": "text"},
     }
+
+
+def test_manifest_entry_carries_given_description():
+    entry = manifest_entry(_PAYLOAD, description="CRM, выгрузка раз в сутки")
+    assert entry["description"] == "CRM, выгрузка раз в сутки"
 
 
 def test_manifest_entry_uses_given_label_types():
@@ -194,6 +201,28 @@ def test_parse_source_labels_tolerates_garbage():
 def test_parse_source_labels_defaults_missing_type_to_text():
     raw = json.dumps({"labels": [{"name": "x", "publish": True}]}).encode("utf-8")
     assert parse_source_labels(raw) == {"x": {"type": "text", "publish": True}}
+
+
+# --- parse_source_description -----------------------------------------------
+
+
+def test_parse_source_description_reads_top_level_field():
+    raw = json.dumps({
+        "name": "CRM", "key_label": "customer_id",
+        "description": "CRM, выгрузка из 1С раз в сутки",
+    }).encode("utf-8")
+    assert parse_source_description(raw) == "CRM, выгрузка из 1С раз в сутки"
+
+
+def test_parse_source_description_missing_field_is_none():
+    raw = json.dumps({"name": "CRM", "key_label": "customer_id"}).encode("utf-8")
+    assert parse_source_description(raw) is None
+
+
+def test_parse_source_description_tolerates_garbage():
+    assert parse_source_description(b"not json") is None
+    assert parse_source_description(b"[]") is None
+    assert parse_source_description(b'{"description": 5}') is None   # не строка
 
 
 # --- filter_to_published --------------------------------------------------

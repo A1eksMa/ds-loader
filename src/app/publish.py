@@ -12,6 +12,7 @@ from src.domain.publish import (
     get_command,
     manifest_entry,
     parse_get_output,
+    parse_source_description,
     parse_source_labels,
     source_signature,
     wrap_source_js,
@@ -50,11 +51,14 @@ def publish_stage(ctx: Context) -> StageReport:
     # («публиковаться должно лишь то, что указано явно»), а не ошибка.
     payloads: Dict[str, dict] = {}
     label_types: Dict[str, Dict[str, str]] = {}
+    descriptions: Dict[str, Optional[str]] = {}
     for name, raw_payload in raw_payloads.items():
-        labels_cfg = _load_source_labels(ctx, cfg, name)
+        raw_source = _read_source_json(ctx, cfg, name)
+        labels_cfg = parse_source_labels(raw_source)
         published = {n for n, info in labels_cfg.items() if info.get("publish")}
         payloads[name] = filter_to_published(raw_payload, published)
         label_types[name] = {n: info["type"] for n, info in labels_cfg.items() if n in published}
+        descriptions[name] = parse_source_description(raw_source)
 
     # --force-publish: считать сохранённые отпечатки отсутствующими -> полная пересборка
     # на этот тик, без изменения БД (см. Config.force_publish).
@@ -78,7 +82,10 @@ def publish_stage(ctx: Context) -> StageReport:
     dropped = sorted(set(known) - set(new_sigs))
     manifest_dirty = bool(written) or bool(dropped) or prev is None
     if manifest_dirty:
-        entries = [manifest_entry(payloads[n], label_types[n]) for n in sorted(payloads)]
+        entries = [
+            manifest_entry(payloads[n], label_types[n], descriptions[n])
+            for n in sorted(payloads)
+        ]
         ctx.fs.write_text(
             posixpath.join(cfg.webui_data_dir, "manifest.js"),
             build_manifest(entries, ctx.clock.now()),
@@ -96,16 +103,16 @@ def publish_stage(ctx: Context) -> StageReport:
     return StageReport("publish", ok=True, changed=len(written), lines=tuple(lines))
 
 
-# --- source.json (эффектное чтение, разбор — чистая parse_source_labels) -----
+# --- source.json (эффектное чтение, разбор — чистые parse_source_labels/
+# parse_source_description) ---------------------------------------------------
 
 
-def _load_source_labels(ctx: Context, cfg: Config, name: str) -> Dict[str, dict]:
+def _read_source_json(ctx: Context, cfg: Config, name: str) -> bytes:
     path = posixpath.join(cfg.sources_dir, name, "source.json")
     try:
-        raw = ctx.fs.read_bytes(path)
+        return ctx.fs.read_bytes(path)
     except OSError:
-        return {}
-    return parse_source_labels(raw)
+        return b"{}"
 
 
 # --- состояние (эффектное) ----------------------------------------------------
