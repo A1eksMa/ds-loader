@@ -32,6 +32,21 @@ PYTHONPATH=/path/to/target/folder python3 -m src.cli.main run --config config.js
 
 ---
 
+## 0.7.0a1 — `ds-loader-0.7.0a1.tar.gz`
+
+`manifest.js` несёт `description` источника — требует `ds-webui` ≥ 0.23.0a1, чтобы она
+где-то отображалась (само поле опубликуется и на старом `ds-webui`, просто без эффекта).
+
+- **`description` в `manifest.js`** — верхнеуровневое `source.json`'s `description`
+  (справочное, `ds` его не использует и не хранит в БД — как `labels[].type`/`publish`)
+  теперь попадает в запись каждого источника. Новая `parse_source_description(raw)`;
+  `manifest_entry()` получил опциональный параметр `description`. Источник без
+  `source.json`/без этого поля → `null`, как и раньше у `label_types`. Правка одного
+  `description` без изменения данных не обязательно вызовет немедленную пересборку
+  манифеста (тот же отпечаток `gen_max_cnt`/`rows`/`labels`, что и у `label_types`) —
+  `--force-publish`, если нужно подхватить сразу.
+- 108 тестов (было 102 на 0.6.0a1).
+
 ## 0.6.0a1 — `ds-loader-0.6.0a1.tar.gz`
 
 Стадия `publish` использует новый `ds get --cache` ядра (`ds` 0.10.0a1) — требует `ds`
