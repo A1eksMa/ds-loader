@@ -32,6 +32,20 @@ PYTHONPATH=/path/to/target/folder python3 -m src.cli.main run --config config.js
 
 ---
 
+## 0.6.0a1 — `ds-loader-0.6.0a1.tar.gz`
+
+Стадия `publish` использует новый `ds get --cache` ядра (`ds` 0.10.0a1) — требует `ds`
+не старше этой версии.
+
+- **`publish_cache_path`** (новое поле конфига, дефолт `.ds-loader/get-cache.json`) —
+  передаётся в каждый вызов `ds get` стадии `publish` как `--cache <path>`, безусловно.
+  `ds-loader` не хранит своего состояния фолда и не решает, когда можно идти быстрым
+  путём — это целиком решает сам `ds` по `struct_version` источника (см. `ds`'s
+  [ADR-0010](https://github.com/A1eksMa/ds/blob/main/docs/decisions/0010-incremental-fold-cache.md)).
+  Опубликованный `{meta, data}` не меняется — выигрыш только в скорости сборки на каждый
+  тик опроса, особенно заметен на растущих источниках.
+- 102 теста (было 101 на 0.5.0a1).
+
 ## 0.5.0a1 — `ds-loader-0.5.0a1.tar.gz`
 
 `ingest` переведён на `ds upload`, `publish` научился фильтровать по `source.json` и
