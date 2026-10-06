@@ -18,14 +18,18 @@
   "webui_preset": null,
   "publish_state_path": ".ds-loader/publish.json",
   "publish_cache_path": ".ds-loader/get-cache.json",
-  "sources": { "crm": { "prep_cmd": null } }
+  "sources": { "crm": { "prep_cmd": null } },
+  "watch_dirs": [
+    { "path": "/data/shared-upload", "method": "upload" },
+    { "path": "/data/shared-load", "method": "load" }
+  ]
 }
 ```
 
 | Ключ | Тип | По умолч. | Смысл |
 |---|---|---|---|
 | `db_path` | string | `data.db` | путь к БД `ds` (передаётся как `ds --db …`). |
-| `sources_dir` | string | `sources` | корень источников. `sources_dir/<name>/` несёт всё сразу: `source.json` (конфиг — обязателен, иначе `<name>` не считается источником), `upload/` (мониторит стадия `ingest`, создаётся сама при отсутствии), `archive/`, `quarantine/`. Подробно — [`archive-layout.md`](archive-layout.md). |
+| `sources_dir` | string | `sources` | корень источников. `sources_dir/<name>/` несёт всё сразу: `source.json` (конфиг — обязателен, иначе `<name>` не считается источником), `upload/` и `load/` (обе мониторит стадия `ingest`, создаются сами при отсутствии — `upload/` грузит через `ds upload`, строгая проверка; `load/` — через `ds load`, прямой и менее безопасный путь, без проверки), `archive/`, `quarantine/`. Подробно — [`archive-layout.md`](archive-layout.md). |
 | `ledger_path` | string | `.ds-loader/ledger.jsonl` | журнал обработанных (JSONL) — основа exactly-once. Общий на все источники, не внутри `sources_dir`. |
 | `poll_interval_seconds` | number > 0 | `5.0` | интервал опроса в режиме цикла. |
 | `stable_after_seconds` | number | `2.0` | файл обрабатывается, только если его `mtime` старше этого порога (защита от недописанного файла). |
@@ -38,5 +42,6 @@
 | `publish_state_path` | string | `.ds-loader/publish.json` | где стадия `publish` хранит отпечатки уже опубликованных источников — чтобы не переписывать неизменившиеся файлы. Битый/отсутствующий → полная пересборка. |
 | `publish_cache_path` | string | `.ds-loader/get-cache.json` | передаётся в каждый вызов `ds get --cache` стадии `publish`. `ds-loader` не хранит своего состояния фолда и ничего в этом файле не интерпретирует — решение «можно ли дотянуть только новые транзакции или нужна полная пересборка» целиком на стороне `ds` (по `struct_version` источника, см. [`ds`'s ADR-0010](https://github.com/A1eksMa/ds/blob/main/docs/decisions/0010-incremental-fold-cache.md)). Итоговый JSON от этого не меняется — только скорость сборки. |
 | `sources` | object | `{}` | переопределения на источник. `prep_cmd` — **зарезервировано**, пока не выполняется (см. [`../roadmap/README.md`](../roadmap/README.md)). |
+| `watch_dirs` | array<object> | `[]` | общие (не привязанные к одному источнику) папки опроса — `{"path": ..., "method": "load"\|"upload"}`. Источник каждого файла определяется **из имени файла**, не из папки (как раскладка до per-source `upload/`); можно несколько, у каждой свой `method`. Путь — **внешний, должен существовать сам** (`ingest` его не создаёт) — недоступность любой из них валит тик целиком, тем же образом, что недоступная `sources_dir`. `method: "load"` — тот же прямой и менее безопасный путь, что и `load/` источника (см. README.md «upload vs load»). |
 
 Относительные пути разрешаются от текущей директории; для прода рекомендуются абсолютные.

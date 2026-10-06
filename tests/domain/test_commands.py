@@ -14,7 +14,7 @@ def _sf(name="crm_2026-08-24_18-08-16_552252.json"):
 
 
 def test_ingest_command_shape():
-    cmd = ingest_command(_cfg(), _sf(), "upd/crm_2026-08-24_18-08-16_552252.json", 1787594896)
+    cmd = ingest_command(_cfg(), _sf(), "upd/crm_2026-08-24_18-08-16_552252.json", 1787594896, "upload")
     assert cmd == [
         "--db", "data.db",
         "upload", "sources/crm",
@@ -26,8 +26,13 @@ def test_ingest_command_shape():
 
 
 def test_ingest_command_honours_dirs():
-    cmd = ingest_command(_cfg(db_path="/abs/x.db", sources_dir="/srv/src"), _sf(), "/in/f.json", 42)
+    cmd = ingest_command(_cfg(db_path="/abs/x.db", sources_dir="/srv/src"), _sf(), "/in/f.json", 42, "upload")
     assert cmd[:5] == ["--db", "/abs/x.db", "upload", "/srv/src/crm", "/in/f.json"]
+
+
+def test_ingest_command_honours_method():
+    cmd = ingest_command(_cfg(), _sf(), "load/crm_2026-08-24_18-08-16_552252.json", 1787594896, "load")
+    assert cmd[2] == "load"
 
 
 def test_ledger_key_depends_on_name_and_content():

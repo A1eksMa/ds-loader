@@ -3,11 +3,12 @@ from __future__ import annotations
 import json
 from typing import Any, Mapping, Optional
 
-from src.domain.models import Config, SourceConfig
+from src.domain.models import Config, SourceConfig, WatchDir
 from src.domain.result import Err, Ok
 
 _KNOWN_STAGES = {"ingest", "publish"}
 _KNOWN_TZ = {"utc", "local"}
+_KNOWN_METHODS = {"load", "upload"}
 
 
 def load_config(
@@ -73,6 +74,19 @@ def load_config(
         prep = spec.get("prep_cmd")
         sources[name] = SourceConfig(prep_cmd=tuple(prep) if prep else None)
 
+    watch_dirs_raw = data.get("watch_dirs", []) or []
+    watch_dirs = []
+    for i, wd in enumerate(watch_dirs_raw):
+        wd = wd or {}
+        path = wd.get("path")
+        method = wd.get("method")
+        if not path or not isinstance(path, str):
+            return Err("watch_dirs[" + str(i) + "].path должен быть непустой строкой")
+        if method not in _KNOWN_METHODS:
+            return Err("watch_dirs[" + str(i) + "].method должен быть одним из "
+                       + str(sorted(_KNOWN_METHODS)))
+        watch_dirs.append(WatchDir(path=path, method=method))
+
     return Ok(Config(
         db_path=str(data.get("db_path", "data.db")),
         sources_dir=str(data.get("sources_dir", "sources")),
@@ -88,4 +102,5 @@ def load_config(
         publish_state_path=publish_state_path,
         publish_cache_path=publish_cache_path,
         sources=sources,
+        watch_dirs=tuple(watch_dirs),
     ))

@@ -17,13 +17,16 @@ Stage = Callable[[Context], StageReport]
 
 Приём. Алгоритм — [`../reference/`](../reference/) и код `src/app/ingest.py`. Кратко:
 найти источники (поддиректории `sources_dir` с `source.json`) → в каждой создать/сканировать
-`upload/` → разобрать имена → упорядочить по всем источникам разом → по одному файлу
-(журнал → стабильность → `ds upload` → журнал → `archive/`/`quarantine/` того же источника).
-`ds upload`, не `ds load` — продьюсеру не доверяем вслепую, см.
-[`exactly-once.md`](exactly-once.md). Раскладка — [`../reference/archive-layout.md`](../reference/archive-layout.md).
-Прогресс по каждому файлу (начало / вызов `ds upload` / результат) уходит в лог через
-`ctx.log` сразу по мере обработки, а не только в итоговом `StageReport` по завершении тика —
-см. [`../reference/cli.md`](../reference/cli.md) → «Что видно в терминале».
+`upload/` и `load/`, плюс все сконфигурированные `watch_dirs` → разобрать имена → упорядочить
+всё разом (по всем папкам/источникам) → по одному файлу (журнал → стабильность → `ds upload`
+или `ds load` → журнал → `archive/`/`quarantine/` того же источника). По умолчанию (`upload/`)
+— `ds upload`, не `ds load`: продьюсеру не доверяем вслепую, см.
+[`exactly-once.md`](exactly-once.md); `load/` и `watch_dirs` с `method: "load"` — осознанно
+прямой и менее безопасный путь (см. `README.md` «upload vs load»). Раскладка —
+[`../reference/archive-layout.md`](../reference/archive-layout.md). Прогресс по каждому файлу
+(начало / вызов `ds upload`/`ds load` / результат) уходит в лог через `ctx.log` сразу по мере
+обработки, а не только в итоговом `StageReport` по завершении тика — см.
+[`../reference/cli.md`](../reference/cli.md) → «Что видно в терминале».
 
 ## Стадия `publish`
 

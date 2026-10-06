@@ -12,9 +12,9 @@
 ## Роль в связке
 
 ```
-┌────────────────────────┐   файлы    ┌────────────┐ ds upload / ds get  ┌──────┐
+┌────────────────────────┐   файлы    ┌────────────┐ ds upload/load/get  ┌──────┐
 │ источники (в свой же    │ ─────────▶ │ ds-loader  │ ──────────────────▶ │  ds  │
-│ sources_dir/<name>/upload)│ <src>_…  │ (оркестр.) │                     └──┬───┘
+│ sources_dir/<name>/{upload,load})│ <src>_… │ (оркестр.)│                └──┬───┘
 └────────────────────────┘            └─────┬──────┘                        │
                                              │ data/*.js + manifest.js       │ состояние
                                              ▼  (стадия publish)             ▼
@@ -23,12 +23,15 @@
                                        └────────────┘                   └──────────┘
 ```
 
+(опционально — файлы разных источников также могут приходить через общие `watch_dirs`
+вне `sources_dir`, см. [`../reference/config.md`](../reference/config.md))
+
 ## Модель стадий
 
 Раннер (`src/app/runner.py`) за один тик прогоняет список **стадий** по порядку. Стадия —
 функция `(Context) -> StageReport`. Какие стадии включены — задаёт `config.stages`.
 
-Реализованы две: **`ingest`** (`src/app/ingest.py`) — приём файлов и `ds upload`;
+Реализованы две: **`ingest`** (`src/app/ingest.py`) — приём файлов и `ds upload`/`ds load`;
 **`publish`** (`src/app/publish.py`) — `ds get` → `data/*.js` + `manifest.js` для `ds-webui`.
 Будущие (`lifecycle`, `build` — см. [`../roadmap/README.md`](../roadmap/README.md))
 добавляются в реестр `STAGES` и в `_KNOWN_STAGES`, не меняя раннер.

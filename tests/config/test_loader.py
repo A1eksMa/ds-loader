@@ -97,3 +97,39 @@ def test_ds_pythonpath_from_file_and_override(tmp_path):
     assert load_config(str(p), {"ds_pythonpath": "/other/ds"}).value.ds_pythonpath == "/other/ds"
     # None-override не сбрасывает значение из файла
     assert load_config(str(p), {"ds_pythonpath": None}).value.ds_pythonpath == "/opt/ds"
+
+
+# --- watch_dirs ---------------------------------------------------------
+
+
+def test_watch_dirs_default_empty():
+    r = load_config(None, {})
+    assert isinstance(r, Ok)
+    assert r.value.watch_dirs == ()
+
+
+def test_watch_dirs_parsed(tmp_path):
+    p = tmp_path / "cfg.json"
+    p.write_text(json.dumps({"watch_dirs": [
+        {"path": "/shared/upl", "method": "upload"},
+        {"path": "/shared/ld", "method": "load"},
+    ]}), encoding="utf-8")
+
+    r = load_config(str(p), {})
+    assert isinstance(r, Ok)
+    wd = r.value.watch_dirs
+    assert len(wd) == 2
+    assert (wd[0].path, wd[0].method) == ("/shared/upl", "upload")
+    assert (wd[1].path, wd[1].method) == ("/shared/ld", "load")
+
+
+def test_watch_dirs_rejects_missing_path(tmp_path):
+    p = tmp_path / "cfg.json"
+    p.write_text(json.dumps({"watch_dirs": [{"method": "load"}]}), encoding="utf-8")
+    assert isinstance(load_config(str(p), {}), Err)
+
+
+def test_watch_dirs_rejects_unknown_method(tmp_path):
+    p = tmp_path / "cfg.json"
+    p.write_text(json.dumps({"watch_dirs": [{"path": "/x", "method": "bogus"}]}), encoding="utf-8")
+    assert isinstance(load_config(str(p), {}), Err)

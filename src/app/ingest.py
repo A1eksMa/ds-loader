@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import posixpath
-from typing import List
+from typing import List, NamedTuple
 
 from src.app.context import Context
 from src.domain.commands import ingest_command, ledger_key
 from src.domain.models import Config, FileOutcome, SourceFile, StageReport
 from src.domain.naming import archive_name, parse_source_file
-from src.domain.queue import order_queue
 from src.domain.result import Err
 from src.domain.timestamps import filename_ts_to_unix
 
@@ -23,15 +22,30 @@ ERROR = "error"
 # Фиксированные имена поддиректорий внутри sources_dir/<source>/ — не конфигурируются:
 # источник и всё, что с ним связано (конфиг + бэкап загруженного), живут в одной папке.
 _UPLOAD = "upload"
+_LOAD = "load"
 _ARCHIVE = "archive"
 _QUARANTINE = "quarantine"
 _SOURCE_CONFIG = "source.json"
 
 
+class _Queued(NamedTuple):
+    """Один найденный файл + откуда его забрать и каким методом грузить. Лёгкая
+    внутренняя структура — не домен (см. ingest_stage/_process_one ниже); сортируется
+    тем же ключом, что раньше использовал src/domain/queue.py::order_queue (он остаётся
+    как есть, под Iterable[SourceFile], отдельно протестирован)."""
+    sf: SourceFile
+    dir_path: str
+    method: str
+
+
 def ingest_stage(ctx: Context) -> StageReport:
-    """Один проход по всем источникам: для каждого — своя `sources_dir/<source>/upload/`
-    (создаётся, если её ещё нет). Разобрать имена, упорядочить по времени, обработать по
-    одному файлу за раз (загрузка -> журнал -> архив)."""
+    """Один проход: для каждого источника — его `sources_dir/<source>/{upload,load}/`
+    (создаются, если их ещё нет; `upload/` -> `ds upload`, строгая проверка; `load/` ->
+    `ds load`, без неё — см. docstring ingest_command), плюс все `cfg.watch_dirs` (общие
+    папки вне sources_dir, источник файла — из имени, не из папки; путь внешний, должен
+    существовать — недоступность любой из них валит тик целиком, как и недоступная
+    sources_dir). Всё найденное — в одну очередь, по времени из имени, по одному файлу
+    за раз (загрузка -> журнал -> архив)."""
     cfg = ctx.config
     try:
         source_names = _discover_sources(ctx, cfg)
@@ -39,26 +53,42 @@ def ingest_stage(ctx: Context) -> StageReport:
         return StageReport("ingest", ok=False, changed=0,
                            lines=("директория источников недоступна: " + str(exc),))
 
-    queue: List[SourceFile] = []
+    queue: List[_Queued] = []
     lines: List[str] = []
     for source in source_names:
-        upload_dir = _upload_dir(cfg, source)
-        ctx.fs.mkdir(upload_dir)
-        for name in ctx.fs.list_files(upload_dir):
+        for dir_path, method in ((_upload_dir(cfg, source), "upload"),
+                                  (_load_dir(cfg, source), "load")):
+            ctx.fs.mkdir(dir_path)
+            for name in ctx.fs.list_files(dir_path):
+                parsed = parse_source_file(name)
+                if isinstance(parsed, Err):
+                    lines.append(name + ": " + BAD_NAME + " — " + parsed.error)
+                    continue
+                sf = parsed.value
+                if sf.source != source:
+                    lines.append(
+                        name + ": " + MISFILED + " — лежит в '" + source + "/" + method
+                        + "', а по имени в файле источник '" + sf.source + "'"
+                    )
+                    continue
+                queue.append(_Queued(sf, dir_path, method))
+
+    for wd in cfg.watch_dirs:
+        try:
+            names = ctx.fs.list_files(wd.path)
+        except OSError as exc:
+            return StageReport("ingest", ok=False, changed=0,
+                               lines=("общая папка опроса недоступна: " + wd.path
+                                      + ": " + str(exc),))
+        for name in names:
             parsed = parse_source_file(name)
             if isinstance(parsed, Err):
                 lines.append(name + ": " + BAD_NAME + " — " + parsed.error)
                 continue
-            sf = parsed.value
-            if sf.source != source:
-                lines.append(
-                    name + ": " + MISFILED + " — лежит в '" + source
-                    + "/upload', а по имени в файле источник '" + sf.source + "'"
-                )
-                continue
-            queue.append(sf)
+            # источник — из имени файла, не из папки: watch_dirs общие на всех
+            queue.append(_Queued(parsed.value, wd.path, wd.method))
 
-    ordered = order_queue(queue)
+    ordered = sorted(queue, key=lambda q: (q.sf.seconds_part, q.sf.source, q.sf.micros))
     total = len(ordered)
     if total:
         ctx.log("ingest: к обработке " + str(total) + " файл(ов)")
@@ -66,10 +96,11 @@ def ingest_stage(ctx: Context) -> StageReport:
     outcomes: List[FileOutcome] = []
     loaded = 0
     now = ctx.clock.now()
-    for i, sf in enumerate(ordered, start=1):
+    for i, q in enumerate(ordered, start=1):
+        sf = q.sf
         progress = "[" + str(i) + "/" + str(total) + "] "
         ctx.log("ingest: " + progress + sf.source + "/" + sf.filename + " — начинаю")
-        outcome = _process_one(ctx, sf, now)
+        outcome = _process_one(ctx, sf, q.dir_path, q.method, now)
         outcomes.append(outcome)
         line = (sf.filename + ": " + outcome.status
                 + ((" — " + outcome.detail) if outcome.detail else ""))
@@ -96,9 +127,9 @@ def _discover_sources(ctx: Context, cfg: Config) -> List[str]:
     return sorted(known)
 
 
-def _process_one(ctx: Context, sf: SourceFile, now: float) -> FileOutcome:
+def _process_one(ctx: Context, sf: SourceFile, dir_path: str, method: str, now: float) -> FileOutcome:
     cfg = ctx.config
-    src_path = posixpath.join(_upload_dir(cfg, sf.source), sf.filename)
+    src_path = posixpath.join(dir_path, sf.filename)
 
     try:
         content = ctx.fs.read_bytes(src_path)
@@ -128,8 +159,8 @@ def _process_one(ctx: Context, sf: SourceFile, now: float) -> FileOutcome:
     # Сам вызов может занять заметное время (большой файл — ds его парсит и вставляет
     # построчно) — это единственный по-настоящему «тихий» момент в обработке файла,
     # отсюда лог непосредственно перед стартом подпроцесса.
-    ctx.log("ingest: " + sf.source + "/" + sf.filename + " — вызываю ds upload...")
-    result = ctx.ds.run(ingest_command(cfg, sf, src_path, dt.value))
+    ctx.log("ingest: " + sf.source + "/" + sf.filename + " — вызываю ds " + method + "...")
+    result = ctx.ds.run(ingest_command(cfg, sf, src_path, dt.value, method))
     if result.exit_code != 0:
         return _quarantine(ctx, src_path, sf, (result.stderr or result.stdout).strip())
 
@@ -153,6 +184,10 @@ def _process_one(ctx: Context, sf: SourceFile, now: float) -> FileOutcome:
 
 def _upload_dir(cfg: Config, source: str) -> str:
     return posixpath.join(cfg.sources_dir, source, _UPLOAD)
+
+
+def _load_dir(cfg: Config, source: str) -> str:
+    return posixpath.join(cfg.sources_dir, source, _LOAD)
 
 
 def _archive_path(ctx: Context, sf: SourceFile) -> str:

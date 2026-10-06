@@ -28,6 +28,19 @@ class SourceConfig:
 
 
 @dataclass(frozen=True)
+class WatchDir:
+    """Общая (не привязанная к одному источнику) папка опроса — `Config.watch_dirs`.
+
+    В отличие от `sources_dir/<source>/{upload,load}/`, источник каждого файла тут
+    определяется ИЗ ИМЕНИ файла, не из папки (как в раскладке до per-source upload/).
+    Путь — внешний, должен существовать сам (`ingest` его не создаёт — см.
+    `src/app/ingest.py`); `method` выбирает, каким вызовом `ds` грузить файлы отсюда.
+    """
+    path: str
+    method: str   # "load" | "upload" — см. docs/reference/config.md про доверие
+
+
+@dataclass(frozen=True)
 class Config:
     db_path: str = "data.db"
     sources_dir: str = "sources"                      # sources_dir/<source>/ несёт всё разом:
@@ -58,6 +71,9 @@ class Config:
     #   data/*.js + manifest.js без изменения БД. В `run_forever` форсировал бы каждый тик —
     #   предназначен для `run --once --force-publish`.
     sources: Mapping[str, SourceConfig] = field(default_factory=dict)
+    # Общие папки опроса, вне sources_dir — см. WatchDir выше. Пусто по умолчанию: без
+    # явной настройки поведение не меняется, ingest смотрит только upload/+load/ источников.
+    watch_dirs: Tuple[WatchDir, ...] = ()
 
 
 # --- Отчёты --------------------------------------------------------------

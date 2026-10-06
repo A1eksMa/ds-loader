@@ -1,5 +1,7 @@
+from src.app.context import Context
 from src.app.ingest import ingest_stage
 from src.domain.commands import ledger_key
+from src.domain.models import Config, WatchDir
 from src.domain.naming import parse_source_file
 from src.ports.ds_cli import CommandResult
 
@@ -147,6 +149,119 @@ def test_upload_dir_created_if_missing(parts):
 
     assert report.ok and report.changed == 0
     assert "sources/crm/upload" in parts["fs"].dirs
+    assert "sources/crm/load" in parts["fs"].dirs   # load/ -- такой же параллельный путь
+
+
+# --- load/: прямой, менее безопасный путь (ds load, не ds upload) --------
+
+
+def test_load_dir_uses_ds_load_not_upload(parts):
+    declare_source(parts["fs"], "crm")
+    parts["fs"].add("sources/crm/load/" + _NAME, mtime=_OLD)
+    ctx = parts["make"]()
+
+    report = ingest_stage(ctx)
+
+    assert report.changed == 1
+    assert report.outcomes[0].status == "loaded"
+    assert parts["ds"].calls == [[
+        "--db", "data.db", "load", "sources/crm",
+        "sources/crm/load/" + _NAME, "--dt", "1787594896",
+    ]]
+    assert "sources/crm/archive/crm_2026-08-24_18-08-16.json" in parts["fs"].files
+
+
+def test_load_dir_misfiled_still_checked(parts):
+    """load/ -- такая же per-source папка, как upload/: имя должно совпадать с источником."""
+    declare_source(parts["fs"], "crm")
+    parts["fs"].add("sources/crm/load/" + _NAME2, mtime=_OLD)   # erp_... лежит у crm/load
+
+    report = ingest_stage(parts["make"]())
+
+    assert parts["ds"].calls == []
+    assert any("skipped-misfiled" in line for line in report.lines)
+
+
+# --- watch_dirs: общие папки вне sources_dir ------------------------------
+
+
+def _ctx(parts, **cfg_kw):
+    base = dict(db_path="data.db", sources_dir="sources",
+                stable_after_seconds=2.0, poll_interval_seconds=5.0, filename_tz="utc")
+    base.update(cfg_kw)
+    return Context(
+        config=Config(**base), clock=parts["clock"], fs=parts["fs"],
+        ds=parts["ds"], ledger=parts["ledger"], stages=(), log=parts["logs"].append,
+    )
+
+
+def test_watch_dir_upload_method(parts):
+    declare_source(parts["fs"], "crm")
+    parts["fs"].add("shared/" + _NAME, mtime=_OLD)
+    ctx = _ctx(parts, watch_dirs=(WatchDir(path="shared", method="upload"),))
+
+    report = ingest_stage(ctx)
+
+    assert report.changed == 1
+    assert parts["ds"].calls == [[
+        "--db", "data.db", "upload", "sources/crm",
+        "shared/" + _NAME, "--dt", "1787594896",
+    ]]
+    # источник найден по имени файла, не по папке 'shared' -- архив всё равно per-source
+    assert "sources/crm/archive/crm_2026-08-24_18-08-16.json" in parts["fs"].files
+
+
+def test_watch_dir_load_method(parts):
+    declare_source(parts["fs"], "crm")
+    parts["fs"].add("shared/" + _NAME, mtime=_OLD)
+    ctx = _ctx(parts, watch_dirs=(WatchDir(path="shared", method="load"),))
+
+    report = ingest_stage(ctx)
+
+    assert report.changed == 1
+    assert parts["ds"].calls[0][2] == "load"
+
+
+def test_watch_dir_no_misfiled_check(parts):
+    """В отличие от upload//load/ источника, в watch_dirs любой источник ожидаем --
+    имя файла само назначает source, нет 'своей' папки, с которой сверять."""
+    declare_source(parts["fs"], "crm")
+    declare_source(parts["fs"], "erp")
+    parts["fs"].add("shared/" + _NAME, mtime=_OLD)     # crm
+    parts["fs"].add("shared/" + _NAME2, mtime=_OLD)    # erp -- та же общая папка
+    ctx = _ctx(parts, watch_dirs=(WatchDir(path="shared", method="upload"),))
+
+    report = ingest_stage(ctx)
+
+    assert report.changed == 2
+    assert not any("skipped-misfiled" in line for line in report.lines)
+    assert "sources/crm/archive/crm_2026-08-24_18-08-16.json" in parts["fs"].files
+    assert "sources/erp/archive/erp_2026-08-24_18-09-00.json" in parts["fs"].files
+
+
+def test_missing_watch_dir_reports_not_ok(parts):
+    declare_source(parts["fs"], "crm")
+    parts["fs"].add("sources/crm/upload/" + _NAME, mtime=_OLD)   # уже найденный файл
+    ctx = _ctx(parts, watch_dirs=(WatchDir(path="does/not/exist", method="upload"),))
+
+    report = ingest_stage(ctx)
+
+    assert report.ok is False and report.changed == 0
+    assert parts["ds"].calls == []   # тик падает целиком, ничего не грузим в т.ч. из upload/
+
+
+def test_ordering_merges_upload_load_and_watch_dirs(parts):
+    """Очередь общая по времени из имени, независимо от того, откуда файл забрали."""
+    declare_source(parts["fs"], "crm")
+    declare_source(parts["fs"], "erp")
+    parts["fs"].add("shared/" + _NAME2, mtime=_OLD)               # erp, 18:09:00 -- позже
+    parts["fs"].add("sources/crm/load/" + _NAME, mtime=_OLD)      # crm, 18:08:16 -- раньше
+    ctx = _ctx(parts, watch_dirs=(WatchDir(path="shared", method="upload"),))
+
+    ingest_stage(ctx)
+
+    dt_args = [c[c.index("--dt") + 1] for c in parts["ds"].calls]
+    assert dt_args == ["1787594896", "1787594940"]   # crm (load/) раньше erp (shared/)
 
 
 # --- failures -------------------------------------------------------
