@@ -154,9 +154,9 @@ def test_source_without_source_json_publishes_only_key_column(parts):
 
     assert rep.ok and rep.changed == 1
     js = parts["fs"].files["webui/data/CRM.js"][0].decode("utf-8")
-    body = json.loads(js.split("] = ", 1)[1].rstrip()[:-1])
-    assert body["meta"]["labels"] == []
-    assert body["data"] == [{"id": "1"}]
+    meta_text = js.split("meta: ", 1)[1].split(",\n  columns:", 1)[0]
+    assert json.loads(meta_text)["labels"] == []
+    assert '"id": function () { return ["1"]; }' in js
     doc = _manifest(parts["fs"])
     assert doc["sources"][0]["labels"] == []
     assert doc["sources"][0]["label_types"] == {}

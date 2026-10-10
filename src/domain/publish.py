@@ -155,16 +155,48 @@ def source_signature(payload: dict) -> str:
 
 
 def wrap_source_js(name: str, payload: dict) -> str:
-    """Текст `data/<name>.js`: присваивание в window.DS.sources[...]."""
+    """Текст `data/<name>.js`: ленивый columnar-формат, присваивание в window.DS.sources[...].
+
+    Формат: ds-webui/docs/contract.md. Каждый показатель (+ключ источника) — своя функция,
+    возвращающая массив значений по всем строкам (позиционно, по индексу строки) — вместо
+    одного построчного `data: [...]`. ds-webui вызывает только функции реально нужных
+    показателей; остальные не парсятся/не аллоцируются движком браузера (ленивая
+    компиляция функций) — ради этого формат и существует (источники с множеством
+    показателей, из которых пользователю нужны один-два).
+
+    Явный `undefined` (не `null`!) на позиции строки — у неё никогда не было этого
+    показателя (как отсутствующий ключ в старом построчном формате); `null` — показатель
+    был явно удалён (`DELETE`). Эти два случая нельзя смешивать (см. контракт), поэтому
+    значения собираются вручную, а не `json.dumps` всего списка сразу — JSON не умеет
+    `undefined`.
+    """
+    meta = payload["meta"]
+    key = meta.get("key")
+    cols = ([key] if key else []) + list(meta.get("labels", []))
+    rows = payload.get("data", [])
+
+    def cell(row: dict, col: str) -> str:
+        if col not in row:
+            return "undefined"
+        return json.dumps(row[col], ensure_ascii=False)
+
+    col_fns = []
+    for col in cols:
+        values = ", ".join(cell(row, col) for row in rows)
+        col_fns.append(
+            "    " + json.dumps(col, ensure_ascii=False)
+            + ": function () { return [" + values + "]; }"
+        )
+
     return (
         _JS_HEADER
-        + "// Формат: ds-webui/docs/contract.md\n"
+        + "// Формат: ds-webui/docs/contract.md (ленивый columnar-формат)\n"
         + "window.DS = window.DS || { sources: {} };\n"
-        + "window.DS.sources["
-        + json.dumps(name, ensure_ascii=False)
-        + "] = "
-        + json.dumps(payload, ensure_ascii=False, indent=2)
-        + ";\n"
+        + "window.DS.sources[" + json.dumps(name, ensure_ascii=False) + "] = {\n"
+        + "  meta: " + json.dumps(meta, ensure_ascii=False, indent=2) + ",\n"
+        + "  columns: {\n"
+        + ",\n".join(col_fns)
+        + "\n  }\n};\n"
     )
 
 
